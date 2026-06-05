@@ -13,6 +13,7 @@ from flask import Flask, render_template, request, redirect, url_for, session, j
 
 app = Flask(__name__)
 app.secret_key = 'proctor_ai_super_secret_key_12345'
+app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500 MB — allow large webcam/screen recordings
 
 @app.template_filter('json_loads')
 def json_loads_filter(s):

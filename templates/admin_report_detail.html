@@ -63,14 +63,46 @@
                 <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:16px;">
                     <div>
                         <span style="font-size:0.8rem; font-weight:700; color:var(--text-secondary);">Webcam Stream Capture</span>
-                        <video src="/static/uploads/webcam_{{ attempt.id }}.webm" controls style="width:100%; border-radius:8px; border:1px solid var(--border-color); background:#000; margin-top:6px;"></video>
+                        <div id="webcam-container-{{ attempt.id }}" style="margin-top:6px;">
+                            <video id="webcam-video-{{ attempt.id }}" preload="metadata" controls
+                                style="width:100%; border-radius:8px; border:1px solid var(--border-color); background:#000; display:block;">
+                                <source src="/static/uploads/webcam_{{ attempt.id }}.webm" type="video/webm">
+                            </video>
+                        </div>
                     </div>
                     <div>
                         <span style="font-size:0.8rem; font-weight:700; color:var(--text-secondary);">Screen Share Capture</span>
-                        <video src="/static/uploads/screen_{{ attempt.id }}.webm" controls style="width:100%; border-radius:8px; border:1px solid var(--border-color); background:#000; margin-top:6px;"></video>
+                        <div id="screen-container-{{ attempt.id }}" style="margin-top:6px;">
+                            <video id="screen-video-{{ attempt.id }}" preload="metadata" controls
+                                style="width:100%; border-radius:8px; border:1px solid var(--border-color); background:#000; display:block;">
+                                <source src="/static/uploads/screen_{{ attempt.id }}.webm" type="video/webm">
+                            </video>
+                        </div>
                     </div>
                 </div>
             </div>
+
+            <script>
+            (function() {
+                var attemptId = {{ attempt.id }};
+                function checkVideo(videoId, containerId, label) {
+                    var v = document.getElementById(videoId);
+                    if (!v) return;
+                    v.addEventListener('error', function() {
+                        var container = document.getElementById(containerId);
+                        if (container) {
+                            container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;padding:28px 16px;border-radius:8px;border:1px dashed var(--border-color);background:var(--bg-light);text-align:center;">'
+                                + '<i class="fa-solid fa-video-slash" style="font-size:1.6rem;color:var(--text-secondary);"></i>'
+                                + '<span style="font-size:0.82rem;color:var(--text-secondary);">No ' + label + ' recording available.<br>The video was not captured or was not uploaded successfully.</span>'
+                                + '</div>';
+                        }
+                    }, true);
+                }
+                checkVideo('webcam-video-' + attemptId, 'webcam-container-' + attemptId, 'webcam');
+                checkVideo('screen-video-' + attemptId, 'screen-container-' + attemptId, 'screen share');
+            })();
+            </script>
+
         </div>
     </div>
 

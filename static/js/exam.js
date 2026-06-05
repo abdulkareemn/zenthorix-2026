@@ -138,43 +138,67 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // 4. Access Media Devices (Webcam, Mic, Screen) - Mocked to prevent native browser prompts
+    // 4. Access Media Devices (Webcam, Mic, Real Screen Share)
     const initMedia = async () => {
-        // Request real webcam & mic stream (prompts user for camera/microphone access)
+        // Request real webcam & mic stream
         webcamStream = await navigator.mediaDevices.getUserMedia({
             video: { width: 320, height: 240 },
             audio: true
         });
         video.srcObject = webcamStream;
-        
+
         // Start Microphone volume analyzer
         initAudioAnalyzer(webcamStream);
-        
-        // 3. Create a dummy canvas for Screen sharing simulation
-        const screenCanvas = document.createElement('canvas');
-        screenCanvas.width = 640;
-        screenCanvas.height = 480;
-        const screenCtx = screenCanvas.getContext('2d');
-        
-        setInterval(() => {
-            screenCtx.fillStyle = '#0f172a';
-            screenCtx.fillRect(0, 0, screenCanvas.width, screenCanvas.height);
-            
-            screenCtx.fillStyle = '#38bdf8';
-            screenCtx.font = 'bold 24px sans-serif';
-            screenCtx.fillText('Secured Assessment Mode Active', 50, 100);
-            
-            screenCtx.fillStyle = '#94a3b8';
-            screenCtx.font = '16px sans-serif';
-            screenCtx.fillText('Screen Sharing Monitor: Stream Active', 50, 140);
-            screenCtx.fillText('Proctor ID: AI-PROCTOR-98', 50, 170);
-            
-            screenCtx.fillStyle = '#64748b';
-            screenCtx.fillText('Sync Time: ' + new Date().toLocaleTimeString(), 50, 210);
-        }, 1000);
-        
-        screenStream = screenCanvas.captureStream(5);
-        
+
+        // Request REAL screen share via getDisplayMedia
+        try {
+            screenStream = await navigator.mediaDevices.getDisplayMedia({
+                video: { cursor: 'always', displaySurface: 'monitor' },
+                audio: false
+            });
+
+            // Detect if candidate manually stops screen share during exam
+            const track = screenStream.getVideoTracks()[0];
+            if (track) {
+                track.addEventListener('ended', () => {
+                    if (isExamActive) {
+                        addActivityLog('Screen sharing stopped by candidate.');
+                        triggerViolation('Screen Share Stopped', 'Candidate stopped screen sharing during the exam.');
+                    }
+                });
+            }
+        } catch (err) {
+            // Fallback: use canvas if user denies screen share
+            console.warn('Screen share denied or unavailable:', err);
+
+            const screenCanvas = document.createElement('canvas');
+            screenCanvas.width = 640;
+            screenCanvas.height = 480;
+            const screenCtx = screenCanvas.getContext('2d');
+
+            const drawDenied = () => {
+                screenCtx.fillStyle = '#1e1e2e';
+                screenCtx.fillRect(0, 0, screenCanvas.width, screenCanvas.height);
+                screenCtx.fillStyle = '#ef4444';
+                screenCtx.font = 'bold 22px sans-serif';
+                screenCtx.fillText('Screen Share Denied', 50, 90);
+                screenCtx.fillStyle = '#94a3b8';
+                screenCtx.font = '15px sans-serif';
+                screenCtx.fillText('Candidate did not allow screen monitoring.', 50, 130);
+                screenCtx.fillStyle = '#64748b';
+                screenCtx.fillText('Time: ' + new Date().toLocaleTimeString(), 50, 170);
+            };
+            drawDenied();
+            setInterval(drawDenied, 1000);
+            screenStream = screenCanvas.captureStream(5);
+
+            setTimeout(() => {
+                if (isExamActive) {
+                    triggerViolation('Screen Share Denied', 'Candidate denied screen sharing permission required for proctoring.');
+                }
+            }, 2000);
+        }
+
         // Start motion tracker loop
         setInterval(checkMotion, 800);
     };
@@ -441,60 +465,65 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     
-    // Stop recording tracks and send blocks to server
+    // Stop recording tracks and send all recorded blobs to server
     const stopRecordingAndUpload = async () => {
         return new Promise((resolve) => {
-            let webcamStopped = false;
-            let screenStopped = false;
-            
-            const checkAndUpload = async () => {
-                if (webcamStopped && screenStopped) {
-                    const fd = new FormData();
-                    if (webcamChunks.length > 0) {
-                        const webcamBlob = new Blob(webcamChunks, { type: 'video/webm' });
-                        fd.append('webcam', webcamBlob, 'webcam.webm');
-                    }
-                    if (screenChunks.length > 0) {
-                        const screenBlob = new Blob(screenChunks, { type: 'video/webm' });
-                        fd.append('screen', screenBlob, 'screen.webm');
-                    }
-                    
+            let webcamStopped = !webcamRecorder || webcamRecorder.state === 'inactive';
+            let screenStopped = !screenRecorder || screenRecorder.state === 'inactive';
+            let uploadedAlready = false;
+
+            // 10-second hard timeout — always resolve so form can submit
+            const timeoutId = setTimeout(() => {
+                if (!uploadedAlready) {
+                    console.warn('Upload timed out — resolving anyway.');
+                    uploadedAlready = true;
+                    resolve(false);
+                }
+            }, 10000);
+
+            const doUpload = async () => {
+                if (uploadedAlready) return;
+                if (!webcamStopped || !screenStopped) return;
+                uploadedAlready = true;
+                clearTimeout(timeoutId);
+
+                const fd = new FormData();
+                if (webcamChunks.length > 0) {
+                    const webcamBlob = new Blob(webcamChunks, { type: 'video/webm' });
+                    fd.append('webcam', webcamBlob, 'webcam.webm');
+                }
+                if (screenChunks.length > 0) {
+                    const screenBlob = new Blob(screenChunks, { type: 'video/webm' });
+                    fd.append('screen', screenBlob, 'screen.webm');
+                }
+
+                // Only upload if we actually have data
+                if (webcamChunks.length > 0 || screenChunks.length > 0) {
                     try {
                         const examId = window.examId;
                         await fetch(`/student/exam/${examId}/upload_recordings`, {
                             method: 'POST',
                             body: fd
                         });
-                        resolve(true);
                     } catch (err) {
-                        console.error("Error uploading videos:", err);
-                        resolve(false);
+                        console.error('Error uploading videos:', err);
                     }
                 }
+                resolve(true);
             };
-            
+
             if (webcamRecorder && webcamRecorder.state !== 'inactive') {
-                webcamRecorder.onstop = () => {
-                    webcamStopped = true;
-                    checkAndUpload();
-                };
+                webcamRecorder.onstop = () => { webcamStopped = true; doUpload(); };
                 webcamRecorder.stop();
-            } else {
-                webcamStopped = true;
             }
-            
+
             if (screenRecorder && screenRecorder.state !== 'inactive') {
-                screenRecorder.onstop = () => {
-                    screenStopped = true;
-                    checkAndUpload();
-                };
+                screenRecorder.onstop = () => { screenStopped = true; doUpload(); };
                 screenRecorder.stop();
-            } else {
-                screenStopped = true;
             }
-            
-            // Fallback triggers if recorders weren't started
-            checkAndUpload();
+
+            // If both were already stopped (or never started), upload immediately
+            doUpload();
         });
     };
     
