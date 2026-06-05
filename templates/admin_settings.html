@@ -1,0 +1,105 @@
+{% extends 'base.html' %}
+
+{% block title_header %}Settings{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>System Settings</h1>
+    <p>Configure global proctoring parameters and manage your profile details.</p>
+</div>
+
+{% if success %}
+    <div class="alert-message alert-success" style="margin-bottom:24px;">
+        <i class="fa-solid fa-circle-check"></i> {{ success }}
+    </div>
+{% endif %}
+
+<div class="dashboard-grid" style="grid-template-columns: 1.5fr 1fr;">
+    <!-- Global Proctoring Parameters Form -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Proctoring Rules Configuration</h3>
+        </div>
+        <div class="card-body">
+            <form action="{{ url_for('admin_settings') }}" method="POST">
+                <div class="switch-group">
+                    <div>
+                        <strong style="display:block; font-size:0.9rem;">Webcam Enforcement Required</strong>
+                        <span style="font-size:0.75rem; color:var(--text-secondary)">Candidates must authorize webcam streams before beginning exams.</span>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" name="webcam" {% if settings.webcam_required == 1 %}checked{% endif %}>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="switch-group">
+                    <div>
+                        <strong style="display:block; font-size:0.9rem;">Audio Levels Monitoring</strong>
+                        <span style="font-size:0.75rem; color:var(--text-secondary)">Capture surrounding microphone volumes and flag talking/voices.</span>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" name="audio" {% if settings.audio_required == 1 %}checked{% endif %}>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="form-group" style="margin-top:20px; border-bottom:1px solid var(--border-color); padding-bottom:16px;">
+                    <label class="form-label" style="font-weight:600;">Max Warnings Tolerated</label>
+                    <span style="display:block; font-size:0.75rem; color:var(--text-secondary); margin-bottom:8px;">
+                        Number of allowed tab switches or cheat detections before auto-submit triggers.
+                    </span>
+                    <input type="number" name="max_warnings" class="form-control" value="{{ settings.max_warnings }}" min="1" max="10" required>
+                </div>
+
+                <div class="switch-group" style="border-bottom:none; margin-bottom:12px;">
+                    <div>
+                        <strong style="display:block; font-size:0.9rem;">Auto-Submit on Offense Limit</strong>
+                        <span style="font-size:0.75rem; color:var(--text-secondary)">Automatically finalize and lock candidate submissions when warning limit is exceeded.</span>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" name="auto_submit" {% if settings.auto_submit == 1 %}checked{% endif %}>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                
+                <h4 style="margin:28px 0 16px; font-size:1.1rem; border-top:1px solid var(--border-color); padding-top:20px;">Admin Profile Settings</h4>
+                <div class="form-group">
+                    <label class="form-label">Full Name</label>
+                    <input type="text" name="full_name" class="form-control" value="{{ session.get('name') }}" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Email Address</label>
+                    <input type="email" name="email" class="form-control" value="{{ session.get('email') }}" required>
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="margin-top:8px;">Save System Settings</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Instructions info card -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">System Rule Enforcement</h3>
+        </div>
+        <div class="card-body">
+            <div style="font-size:0.88rem; color:var(--text-secondary); display:flex; flex-direction:column; gap:16px;">
+                <p>
+                    <i class="fa-solid fa-circle-info" style="color:var(--primary)"></i> 
+                    These regulations govern the examination engine for all candidates. Updating parameters resets monitoring metrics immediately.
+                </p>
+                <p>
+                    <strong>Webcam scan</strong> verifies alignment boxes and checks for candidate attendance checks.
+                </p>
+                <p>
+                    <strong>Tab tracking</strong> tracks client-side visibility alerts. If tab is unfocused, it records violations.
+                </p>
+                <p>
+                    <strong>Full-screen checks</strong> restricts opening of browser dialogs or secondary search frames.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

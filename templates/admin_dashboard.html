@@ -1,0 +1,129 @@
+{% extends 'base.html' %}
+
+{% block title_header %}Admin Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Welcome back, Admin</h1>
+    <p>Overview of system activity and active assessments.</p>
+</div>
+
+<!-- Stats Grid -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-info">
+            <h3>Total Candidates</h3>
+            <div class="stat-value">{{ total_candidates }}</div>
+        </div>
+        <div class="stat-icon icon-purple">
+            <i class="fa-solid fa-user-graduate"></i>
+        </div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-info">
+            <h3>Active Exams</h3>
+            <div class="stat-value">{{ total_exams }}</div>
+        </div>
+        <div class="stat-icon icon-blue">
+            <i class="fa-solid fa-file-invoice"></i>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-info">
+            <h3>Total Users</h3>
+            <div class="stat-value">{{ total_users }}</div>
+        </div>
+        <div class="stat-icon icon-green">
+            <i class="fa-solid fa-user-shield"></i>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-info">
+            <h3>Live Proctoring</h3>
+            <div class="stat-value" style="color: var(--danger);">{{ active_live }}</div>
+        </div>
+        <div class="stat-icon icon-red" style="background-color: #ffe4e6;">
+            <i class="fa-solid fa-tower-broadcast"></i>
+        </div>
+    </div>
+</div>
+
+<div class="dashboard-grid">
+    <!-- Left Column: Recent Security Alerts -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Recent System Alerts</h3>
+            <a href="{{ url_for('admin_reports') }}" class="btn btn-secondary" style="font-size:0.75rem;padding:6px 12px">View Reports</a>
+        </div>
+        <div class="card-body" style="padding: 0;">
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Candidate</th>
+                            <th>Exam Name</th>
+                            <th>Alert Type</th>
+                            <th>Description</th>
+                            <th>Timestamp</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if recent_alerts %}
+                            {% for alert in recent_alerts %}
+                                <tr>
+                                    <td><strong>{{ alert.candidate_name }}</strong></td>
+                                    <td>{{ alert.exam_name }}</td>
+                                    <td>
+                                        <span class="badge badge-danger">
+                                            {{ alert.alert_type }}
+                                        </span>
+                                    </td>
+                                    <td>{{ alert.description }}</td>
+                                    <td>{{ alert.timestamp }}</td>
+                                </tr>
+                            {% endfor %}
+                        {% else: %}
+                            <tr>
+                                <td colspan="5" style="text-align: center; color: var(--text-secondary); padding: 32px 0;">
+                                    <i class="fa-solid fa-circle-info" style="font-size: 1.5rem; margin-bottom: 8px;"></i><br>
+                                    No proctoring warnings logged.
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Column: Quick Actions & Live Monitor -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Live Monitoring Console</h3>
+        </div>
+        <div class="card-body">
+            <div style="text-align: center; padding: 16px 0;">
+                <div style="width: 70px; height: 70px; background-color: var(--danger-light); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; color: var(--danger); font-size: 2rem; position: relative;">
+                    <i class="fa-solid fa-tower-broadcast"></i>
+                    {% if active_live > 0 %}
+                        <span style="position: absolute; top: 0; right: 0; width: 14px; height: 14px; background-color: var(--danger); border-radius: 50%; border: 2px solid white; animation: pulse-live 1.2s infinite alternate;"></span>
+                    {% endif %}
+                </div>
+                <h4>Active Streams: <span style="color:var(--danger)">{{ active_live }}</span></h4>
+                <p style="color:var(--text-secondary);font-size:0.85rem;margin:8px 0 20px">Monitor candidate screen states and camera feeds live.</p>
+                <a href="{{ url_for('admin_live') }}" class="btn btn-primary" style="width: 100%;">Launch Monitor Grid</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    @keyframes pulse-live {
+        0% { opacity: 0.3; }
+        100% { opacity: 1; }
+    }
+</style>
+{% endblock %}

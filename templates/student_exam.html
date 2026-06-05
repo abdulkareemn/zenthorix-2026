@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ exam.name }} - ProctorAI Secure Environment</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- CodeMirror Assets -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/dracula.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/clike/clike.min.js"></script>
+</head>
+<body style="background-color: var(--bg-primary); overflow: hidden;">
+
+    <!-- Secure Exam Topbar -->
+    <header class="exam-header">
+        <div style="display: flex; align-items: center; gap: 16px;">
+            <div style="background-color: #f1f5f9; padding: 6px 12px; border-radius: 4px; font-weight: 700; font-size: 0.9rem; border: 1px solid var(--border-color);">
+                <i class="fa-solid fa-clock" style="color:var(--primary); margin-right:4px;"></i> 
+                <span id="timer-display">--:--</span>
+            </div>
+            <strong style="font-family:'Outfit', sans-serif; font-size: 1.1rem; color: #0f172a;">{{ exam.name }}</strong>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <span class="badge badge-primary" style="padding: 6px 14px; font-size:0.8rem;"><i class="fa-solid fa-user-check"></i> Candidate</span>
+            
+            <select class="form-control" style="width: auto; padding: 4px 10px; font-size: 0.85rem; height: 32px;" readonly>
+                <option value="java">Java</option>
+            </select>
+
+            <span class="badge badge-success" style="background-color: #ffedd5; color: #ea580c; border: 1px solid #fed7aa; height: 32px; display: inline-flex; align-items: center;">CAM</span>
+            <span class="badge badge-success" style="background-color: #d1fae5; color: #059669; border: 1px solid #a7f3d0; height: 32px; display: inline-flex; align-items: center;">MIC</span>
+        </div>
+    </header>
+
+    <!-- Split Pane Workspace -->
+    <div class="exam-body">
+        
+        <!-- Left Panel: Instructions & Prompt -->
+        <aside class="exam-left-panel">
+            {% for q in questions %}
+                <div class="question-title-wrapper">
+                    <h3 style="font-size: 1.15rem; font-weight: 700;">{{ q.title }}</h3>
+                    <span class="badge badge-primary">{{ q.difficulty }}</span>
+                </div>
+                
+                <p class="question-desc">{{ q.description }}</p>
+                
+                <div class="io-box">
+                    <h4>Sample Input</h4>
+                    <pre>{{ q.sample_input }}</pre>
+                </div>
+                
+                <div class="io-box">
+                    <h4>Expected Output</h4>
+                    <pre>{{ q.expected_output }}</pre>
+                </div>
+                
+                <button class="btn btn-secondary" style="font-size: 0.8rem; padding: 6px 12px; margin-top: 12px;">
+                    Mark for review
+                </button>
+            {% endfor %}
+        </aside>
+
+        <!-- Center Panel: Editor & Code Execution Console -->
+        <main class="exam-center-panel">
+            <div class="editor-header">
+                <span class="editor-title">Main.java</span>
+            </div>
+            
+            <div class="editor-area">
+                {% for q in questions %}
+                    <!-- Textarea which CodeMirror will overlay -->
+                    <textarea id="code-editor" class="code-textarea">{{ q.template }}</textarea>
+                {% endfor %}
+            </div>
+            
+            <!-- Code execution console panel -->
+            <div class="console-panel">
+                <div class="console-header">
+                    <span class="console-title">Test Console</span>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-secondary" id="btn-run-code" style="padding: 4px 14px; font-size: 0.8rem; height: 28px;">
+                            <i class="fa-solid fa-play"></i> Run
+                        </button>
+                        <button class="btn btn-primary" id="btn-submit-exam" style="padding: 4px 14px; font-size: 0.8rem; height: 28px;">
+                            Submit
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="console-body">
+                    <div class="console-input">
+                        <div class="console-box-label">Input</div>
+                        <textarea class="console-box-textarea" id="console-input-box" placeholder="Send arguments/stdin inputs here..."></textarea>
+                    </div>
+                    <div class="console-output">
+                        <div class="console-box-label">Output</div>
+                        <textarea class="console-box-textarea" id="console-output-box" placeholder="Run code to view output..." readonly></textarea>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Right Panel: Proctoring Video & AI Checks Status -->
+        <aside class="exam-right-panel">
+            <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase;">
+                AI Proctoring <span class="badge badge-warning" style="margin-left: 6px; float: right; font-size: 0.65rem;">Warning</span>
+            </div>
+            
+            <!-- Live Proctoring Camera Frame -->
+            <div class="proctor-video-box">
+                <video id="proctor-webcam" autoplay playsinline muted></video>
+                <div class="rec-badge">
+                    <div class="rec-dot"></div> REC
+                </div>
+            </div>
+
+            <!-- AI checks status lines -->
+            <div class="proctor-alert-list">
+                <div class="proctor-alert-item">
+                    <span>Face Detection</span>
+                    <span class="badge badge-success" id="status-face">Detected</span>
+                </div>
+                <div class="proctor-alert-item">
+                    <span>Eye Gaze</span>
+                    <span class="badge badge-success" id="status-gaze">Center</span>
+                </div>
+                <div class="proctor-alert-item">
+                    <span>Mouth</span>
+                    <span class="badge badge-success" id="status-mouth">Clear</span>
+                </div>
+                <div class="proctor-alert-item">
+                    <span>Head Pose</span>
+                    <span class="badge badge-success" id="status-head">Clear</span>
+                </div>
+                <div class="proctor-alert-item">
+                    <span>Objects</span>
+                    <span class="badge badge-success" id="status-objects">Clear</span>
+                </div>
+                <div class="proctor-alert-item">
+                    <span>Microphone</span>
+                    <span class="badge badge-success" id="status-mic">Live</span>
+                </div>
+                <div class="proctor-alert-item">
+                    <span>Tab Focus</span>
+                    <span class="badge badge-success" id="status-tab">Focused</span>
+                </div>
+                <div class="proctor-alert-item">
+                    <span>Fullscreen</span>
+                    <span class="badge badge-success" id="status-fullscreen">Active</span>
+                </div>
+            </div>
+
+            <!-- Warning Log Scrollbox -->
+            <div style="margin-top: 8px; flex-grow: 1; display: flex; flex-direction: column; overflow: hidden;">
+                <div style="font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 6px;">
+                    Activity Log
+                </div>
+                <div style="background-color: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); flex-grow: 1; overflow-y: auto;">
+                    <ul id="activity-logs" style="list-style:none; font-size:0.8rem;">
+                        <!-- Alerts append here -->
+                    </ul>
+                </div>
+            </div>
+        </aside>
+
+    </div>
+
+    <!-- Hidden form to process final code submission -->
+    <form id="exam-submission-form" action="{{ url_for('submit_exam', exam_id=exam.id) }}" method="POST" style="display: none;">
+        <textarea name="code_editor" id="hidden-code-textarea"></textarea>
+    </form>
+
+    <!-- Warning overlay alert popup dialog -->
+    <div class="warning-overlay" id="warning-overlay">
+        <div class="warning-dialog">
+            <i class="fa-solid fa-triangle-exclamation" style="font-size: 3.5rem; color: var(--danger);"></i>
+            <div class="warning-title">Proctor Warning</div>
+            <p style="color: var(--text-secondary); margin-bottom: 24px; font-size: 0.95rem;" id="warning-message-text">
+                Navigating away from the exam window or exiting full-screen mode is a proctoring violation.
+            </p>
+            <div style="background-color: var(--danger-light); color: var(--danger); padding: 12px; border-radius: 6px; font-weight: 700; display: inline-block; margin-bottom: 24px; font-size: 0.9rem;">
+                Warning Count: <span id="warning-count-text">0</span> / {{ rules.max_tab_switches }}
+            </div>
+            <div>
+                <button class="btn btn-danger" id="btn-close-warning" style="width: 100%; padding: 12px;">Refocus Window</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Initialization Overlay -->
+    <div class="warning-overlay" id="init-overlay" style="display: flex;">
+        <div class="warning-dialog" style="max-width: 600px;">
+            <i class="fa-solid fa-shield-halved" style="font-size: 3.5rem; color: var(--primary); margin-bottom: 16px;"></i>
+            <div class="warning-title">Enter Secure Assessment Mode</div>
+            <p style="color: var(--text-secondary); margin-bottom: 20px; font-size: 0.95rem; line-height: 1.5;">
+                To ensure integrity, this exam runs in a locked environment. Clicking the button below will:
+            </p>
+            <div style="text-align: left; max-width: 440px; margin: 0 auto 24px; font-size: 0.9rem; line-height: 1.6;">
+                • Request webcam and microphone stream authorization<br>
+                • Prompt for screen-sharing stream authorization (Select "Entire Screen")<br>
+                • Lock the browser window into Fullscreen Mode
+            </div>
+            <button class="btn btn-primary" id="btn-start-secure-mode" style="width: 100%; padding: 14px;">
+                Launch Secure Environment
+            </button>
+        </div>
+    </div>
+
+    <!-- Uploading Overlay -->
+    <div class="warning-overlay" id="upload-overlay" style="display: none;">
+        <div class="warning-dialog">
+            <i class="fa-solid fa-circle-notch fa-spin" style="font-size: 3.5rem; color: var(--success); margin-bottom: 16px;"></i>
+            <div class="warning-title">Submitting Assessment...</div>
+            <p style="color: var(--text-secondary); margin-bottom: 12px;" id="upload-status-text">
+                Constructing exam video recording logs. Please do not close this window.
+            </p>
+            <div style="font-size:0.85rem; color:var(--primary); font-weight:700;">
+                Uploading webcam & screen capture video files...
+            </div>
+        </div>
+    </div>
+
+    <!-- Global Variable scripts setup for client script -->
+    <script>
+        window.examId = {{ exam.id }};
+        window.examTimeRemaining = {{ time_remaining }};
+        window.examRules = {{ exam.rules_json | safe }};
+    </script>
+    <script src="{{ url_for('static', filename='js/main.js') }}?v={{ range(1, 100000) | random }}"></script>
+    <script src="{{ url_for('static', filename='js/exam.js') }}?v={{ range(1, 100000) | random }}"></script>
+    
+    <!-- CodeMirror Binding -->
+    <script>
+        var textarea = document.getElementById('code-editor');
+        var hiddenTextarea = document.getElementById('hidden-code-textarea');
+        
+        var editor = CodeMirror.fromTextArea(textarea, {
+            lineNumbers: true,
+            mode: "text/x-java",
+            theme: "dracula",
+            indentUnit: 4,
+            matchBrackets: true
+        });
+        
+        // Sync CodeMirror back to raw textarea on changes
+        editor.on('change', function(cm) {
+            textarea.value = cm.getValue();
+            hiddenTextarea.value = cm.getValue();
+        });
+        
+        // Initial load sync
+        hiddenTextarea.value = editor.getValue();
+    </script>
+</body>
+</html>

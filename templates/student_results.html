@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+
+{% block title_header %}Assessment Results{% endblock %}
+
+{% block content %}
+<div class="page-header" style="margin-bottom:24px;">
+    <a href="{{ url_for('student_dashboard') }}" class="btn btn-secondary" style="font-size: 0.8rem; padding: 6px 12px; margin-bottom: 12px;">
+        <i class="fa-solid fa-arrow-left"></i> Back to Dashboard
+    </a>
+    <h1>Assessment Submissions</h1>
+    <p>View completion receipts, score lists, and proctoring review states.</p>
+</div>
+
+{% if submitted %}
+    <!-- Completed Notification Card -->
+    <div class="card" style="border: 2px solid var(--success-light); background-color: #f0fdf4; margin-bottom: 32px;">
+        <div class="card-body" style="text-align: center; padding: 40px 24px;">
+            <div style="width: 72px; height: 72px; background-color: var(--success-light); color: var(--success); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; margin: 0 auto 20px;">
+                <i class="fa-solid fa-trophy"></i>
+            </div>
+            <h2 style="font-size: 1.5rem; color: #166534; font-weight: 700;">Assessment Submitted Successfully!</h2>
+            <p style="color: #15803d; font-size: 0.9rem; margin-top: 8px;">
+                Your answers have been securely recorded. The proctoring audio and video logs are now pending administrative review.
+            </p>
+        </div>
+    </div>
+{% endif %}
+
+<div class="dashboard-grid">
+    <!-- Left Column: Pending review note -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Proctor Review Status</h3>
+        </div>
+        <div class="card-body">
+            <div style="text-align: center; padding: 16px 0; color: var(--text-secondary);">
+                <i class="fa-solid fa-user-shield" style="font-size: 2.5rem; color: var(--primary); margin-bottom: 16px;"></i>
+                <h4>Pending Admin Review</h4>
+                <p style="font-size:0.85rem; margin-top:8px; line-height: 1.5;">
+                    Scores and proctoring metrics will appear here after the proctors have audited the session video frame feeds and warning logs.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Column: Submission History Scores -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Completed Scores</h3>
+        </div>
+        <div class="card-body" style="padding: 0;">
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Exam Name</th>
+                            <th>Date Completed</th>
+                            <th>Total Marks</th>
+                            <th>Score Obtained</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if results %}
+                            {% for res in results %}
+                                <tr>
+                                    <td><strong>{{ res.exam_name }}</strong></td>
+                                    <td>{{ res.end_time }}</td>
+                                    <td>{{ res.total_marks }}</td>
+                                    <td>
+                                        {% if res.status == 'reviewed' %}
+                                            <strong style="color: var(--primary); font-size:1.1rem;">{{ res.score }}</strong> / {{ res.total_marks }}
+                                        {% else %}
+                                            <span class="badge badge-warning">Pending Audit</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="4" style="text-align: center; color: var(--text-secondary); padding: 32px 0;">
+                                    No completed score reports available.
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

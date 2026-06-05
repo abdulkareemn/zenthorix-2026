@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+
+{% block title_header %}Verification Setup - {{ exam.name }}{% endblock %}
+
+{% block content %}
+<div class="verify-container">
+    <div class="verify-box">
+        <h2 style="font-size: 1.75rem; margin-bottom: 8px;">Identity Verification Check</h2>
+        <p style="color:var(--text-secondary); font-size:0.95rem;">Before beginning <strong>{{ exam.name }}</strong>, authorize proctoring streams and confirm your identity.</p>
+        
+        <!-- Camera Stream Frame -->
+        <div class="verify-video-wrapper">
+            <video id="verify-video" autoplay playsinline muted></video>
+            <!-- Overlay scanner animation -->
+            <div class="overlay-scanner" id="scanner-overlay" style="display: none;"></div>
+        </div>
+        
+        <p id="verify-status-text" style="font-weight: 500; font-size: 0.9rem; margin-bottom: 20px; color: var(--primary);">
+            Camera and Microphone permissions required. Click "Start Webcam" to begin.
+        </p>
+
+        <!-- Status Checklist -->
+        <div class="checklist">
+            <div class="checklist-item">
+                <span class="checklist-icon checklist-pending" id="check-camera">?</span>
+                <span>Webcam & Microphone authorized</span>
+            </div>
+            <div class="checklist-item">
+                <span class="checklist-icon checklist-pending" id="check-system">?</span>
+                <span>System configuration check verified</span>
+            </div>
+            <div class="checklist-item">
+                <span class="checklist-icon checklist-pending" id="check-id">?</span>
+                <span>Facial biometrics matched with database record</span>
+            </div>
+        </div>
+
+        <!-- Action buttons -->
+        <div style="margin-top: 32px;">
+            <button id="btn-start-webcam" class="btn btn-primary">
+                <i class="fa-solid fa-camera"></i> Start Webcam
+            </button>
+            <button id="btn-capture" class="btn btn-primary" style="display: none;" disabled>
+                <i class="fa-solid fa-id-card"></i> Verify Identity
+            </button>
+            <a href="{{ url_for('student_instructions', exam_id=exam.id) }}" id="btn-proceed" class="btn btn-primary" style="display: none; background-color: var(--success);" disabled>
+                Proceed to Instructions <i class="fa-solid fa-arrow-right"></i>
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/verification.js') }}"></script>
+{% endblock %}

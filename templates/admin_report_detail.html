@@ -1,0 +1,119 @@
+{% extends 'base.html' %}
+
+{% block title_header %}Attempt Details #{{ attempt.id }}{% endblock %}
+
+{% block content %}
+<div class="page-header" style="margin-bottom:20px;">
+    <a href="{{ url_for('admin_reports') }}" class="btn btn-secondary" style="font-size:0.8rem; padding:6px 12px; margin-bottom:12px;">
+        <i class="fa-solid fa-arrow-left"></i> Back to Reports
+    </a>
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
+        <div>
+            <h1>Report: {{ attempt.student_name }}</h1>
+            <p>Exam: {{ attempt.exam_name }} | Completed on {{ attempt.end_time }}</p>
+        </div>
+        <div>
+            {% if attempt.status == 'submitted' %}
+                <form action="{{ url_for('review_report', attempt_id=attempt.id) }}" method="POST">
+                    <button type="submit" class="btn btn-primary" style="background-color: var(--success);">
+                        <i class="fa-solid fa-file-signature"></i> Publish Result & Approve Review
+                    </button>
+                </form>
+            {% else %}
+                <span class="badge badge-success" style="font-size:0.85rem; padding:8px 16px;">
+                    <i class="fa-solid fa-circle-check"></i> Reviewed & Published
+                </span>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="dashboard-grid">
+    <!-- Left Column: Attempt stats, Submitted Code, & Recorded Audits -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Submission Details</h3>
+        </div>
+        <div class="card-body">
+            <div style="display:flex; justify-content:space-between; margin-bottom:20px; border-bottom:1px solid var(--border-color); padding-bottom:12px;">
+                <div>
+                    <span style="font-size:0.8rem; text-transform:uppercase; color:var(--text-secondary)">Final Score</span>
+                    <h2 style="font-size:2rem; color:var(--primary)">{{ attempt.score }} / {{ attempt.total_marks }}</h2>
+                </div>
+                <div>
+                    <span style="font-size:0.8rem; text-transform:uppercase; color:var(--text-secondary)">Warnings count</span>
+                    <h2 style="font-size:2rem; color:{% if attempt.warnings_count >= 3 %}var(--danger){% else %}var(--warning){% endif %}">
+                        {{ attempt.warnings_count }}
+                    </h2>
+                </div>
+                <div>
+                    <span style="font-size:0.8rem; text-transform:uppercase; color:var(--text-secondary)">Time Started</span>
+                    <p style="font-weight:600; margin-top:4px;">{{ attempt.start_time }}</p>
+                </div>
+            </div>
+
+            <h4>Java Submission</h4>
+            <div style="margin-top:10px; background-color:#1e1e2e; padding:16px; border-radius:var(--radius-sm); border:1px solid #313244;">
+                <pre style="color:#cdd6f4; font-family:'Fira Code', monospace; font-size:0.85rem; overflow-x:auto; line-height:1.5;">{% if attempt.answers_json %}{{ (attempt.answers_json | json_loads)['q1_code'] }}{% else %}No code submitted.{% endif %}</pre>
+            </div>
+
+            <!-- Video Audits recordings -->
+            <div style="margin-top:28px;">
+                <h4 style="margin-bottom:10px;">Recorded Proctor Video Audits</h4>
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:16px;">
+                    <div>
+                        <span style="font-size:0.8rem; font-weight:700; color:var(--text-secondary);">Webcam Stream Capture</span>
+                        <video src="/static/uploads/webcam_{{ attempt.id }}.webm" controls style="width:100%; border-radius:8px; border:1px solid var(--border-color); background:#000; margin-top:6px;"></video>
+                    </div>
+                    <div>
+                        <span style="font-size:0.8rem; font-weight:700; color:var(--text-secondary);">Screen Share Capture</span>
+                        <video src="/static/uploads/screen_{{ attempt.id }}.webm" controls style="width:100%; border-radius:8px; border:1px solid var(--border-color); background:#000; margin-top:6px;"></video>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Column: Security Incidents Warnings list -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Security Incidents Logs</h3>
+        </div>
+        <div class="card-body" style="padding:0;">
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Incident</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if logs %}
+                            {% for log in logs %}
+                                <tr>
+                                    <td style="white-space:nowrap; font-size:0.8rem; color:var(--text-secondary)">{{ log.timestamp }}</td>
+                                    <td>
+                                        <span class="badge badge-danger">
+                                            {{ log.alert_type }}
+                                        </span>
+                                    </td>
+                                    <td style="font-size:0.82rem;">{{ log.description }}</td>
+                                </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="3" style="text-align: center; color: var(--text-secondary); padding: 32px 0;">
+                                    <i class="fa-solid fa-circle-check" style="font-size:1.5rem; color:var(--success); margin-bottom:8px;"></i><br>
+                                    No proctoring violations recorded for this attempt.
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

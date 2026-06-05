@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - ProctorAI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="login-container">
+    <div class="login-box">
+        <div class="login-header">
+            <div class="brand" style="justify-content: center; margin-bottom: 12px; padding-left: 0;">
+                <div class="brand-icon">P</div>
+                <span style="color:#0f172a">ProctorAI</span>
+            </div>
+            <p style="color:var(--text-secondary);font-size:0.9rem">Remote examination monitoring platform</p>
+        </div>
+
+        {% if error %}
+            <div class="alert-message alert-danger">
+                <i class="fa-solid fa-triangle-exclamation"></i> {{ error }}
+            </div>
+        {% endif %}
+        
+        {% if success %}
+            <div class="alert-message alert-success">
+                <i class="fa-solid fa-circle-check"></i> {{ success }}
+            </div>
+        {% endif %}
+
+        <!-- Role Toggle -->
+        <div class="login-toggle" id="role-toggle">
+            <div class="login-toggle-btn active" onclick="setRole('student')">Candidate</div>
+            <div class="login-toggle-btn" onclick="setRole('admin')">Proctor</div>
+        </div>
+
+        <!-- Login Form -->
+        <form id="login-form" action="{{ url_for('login') }}" method="POST">
+            <input type="hidden" name="role" id="form-role" value="student">
+            
+            <div class="form-group">
+                <label class="form-label">Email Address</label>
+                <input type="email" name="email" class="form-control" placeholder="name@domain.com" required value="student@proctor.ai">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Password</label>
+                <input type="password" name="password" class="form-control" placeholder="••••••••" required value="student123">
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; padding: 12px; margin-top: 8px;">Sign In</button>
+        </form>
+
+        <!-- Register Toggle Link (Only for students) -->
+        <div class="login-footer" id="register-toggle-box">
+            Don't have a candidate account? <a href="#" onclick="toggleRegisterForm(true)">Register here</a>
+        </div>
+
+        <!-- Register Form (hidden initially) -->
+        <form id="register-form" action="{{ url_for('register') }}" method="POST" style="display: none;">
+            <div class="form-group">
+                <label class="form-label">Full Name</label>
+                <input type="text" name="name" class="form-control" placeholder="John Doe" required>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Email Address</label>
+                <input type="email" name="email" class="form-control" placeholder="name@domain.com" required>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Password</label>
+                <input type="password" name="password" class="form-control" placeholder="••••••••" required>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; padding: 12px; margin-top: 8px;">Create Account</button>
+            
+            <div class="login-footer">
+                Already registered? <a href="#" onclick="toggleRegisterForm(false)">Log in here</a>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        function setRole(role) {
+            document.getElementById('form-role').value = role;
+            
+            // Update active toggle class
+            const btns = document.querySelectorAll('#role-toggle .login-toggle-btn');
+            btns[0].classList.toggle('active', role === 'student');
+            btns[1].classList.toggle('active', role === 'admin');
+            
+            // Adjust defaults for demo ease
+            const emailInput = document.querySelector('input[name="email"]');
+            const passInput = document.querySelector('input[name="password"]');
+            
+            if (role === 'admin') {
+                emailInput.value = 'admin@proctor.ai';
+                passInput.value = 'admin123';
+                document.getElementById('register-toggle-box').style.display = 'none';
+                toggleRegisterForm(false);
+            } else {
+                emailInput.value = 'student@proctor.ai';
+                passInput.value = 'student123';
+                document.getElementById('register-toggle-box').style.display = 'block';
+            }
+        }
+        
+        function toggleRegisterForm(show) {
+            const loginForm = document.getElementById('login-form');
+            const registerForm = document.getElementById('register-form');
+            const toggle = document.getElementById('role-toggle');
+            const toggleBox = document.getElementById('register-toggle-box');
+            
+            if (show) {
+                loginForm.style.display = 'none';
+                registerForm.style.display = 'block';
+                toggle.style.display = 'none';
+                toggleBox.style.display = 'none';
+            } else {
+                loginForm.style.display = 'block';
+                registerForm.style.display = 'none';
+                if (document.getElementById('form-role').value === 'student') {
+                    toggle.style.display = 'flex';
+                    toggleBox.style.display = 'block';
+                } else {
+                    toggle.style.display = 'flex';
+                    toggleBox.style.display = 'none';
+                }
+            }
+        }
+    </script>
+</body>
+</html>

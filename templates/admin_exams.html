@@ -1,0 +1,147 @@
+{% extends 'base.html' %}
+
+{% block title_header %}Exam Management{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Exams</h1>
+    <p>Create and customize proctored examinations.</p>
+</div>
+
+<div class="dashboard-grid" style="grid-template-columns: 1fr 2fr;">
+    <!-- Create Exam Form -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Create New Exam</h3>
+        </div>
+        <div class="card-body">
+            <form action="{{ url_for('create_exam') }}" method="POST">
+                <div class="form-group">
+                    <label class="form-label">Exam Name</label>
+                    <input type="text" name="exam_name" class="form-control" placeholder="e.g. Java Midterm" required>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Duration (Mins)</label>
+                        <input type="number" name="duration" class="form-control" value="30" min="5" max="300" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Total Marks</label>
+                        <input type="number" name="marks" class="form-control" value="100" min="10" required>
+                    </div>
+                </div>
+
+                <h4 style="margin: 16px 0 10px; font-size: 0.95rem; border-bottom: 1px solid var(--border-color); padding-bottom: 6px;">Proctoring Rules</h4>
+                
+                <div class="switch-group">
+                    <span style="font-size:0.875rem;">Webcam Enforcement</span>
+                    <label class="switch">
+                        <input type="checkbox" name="webcam" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="switch-group">
+                    <span style="font-size:0.875rem;">Audio Monitoring</span>
+                    <label class="switch">
+                        <input type="checkbox" name="audio" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="form-group" style="margin-top:12px;">
+                    <label class="form-label">Max Tab Switches Allowed</label>
+                    <input type="number" name="max_tabs" class="form-control" value="3" min="1" max="10">
+                </div>
+
+                <div class="switch-group">
+                    <span style="font-size:0.875rem;">Auto-Submit on Violations</span>
+                    <label class="switch">
+                        <input type="checkbox" name="auto_submit" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="switch-group">
+                    <span style="font-size:0.875rem;">Randomize Question Order</span>
+                    <label class="switch">
+                        <input type="checkbox" name="randomize" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <h4 style="margin: 20px 0 10px; font-size: 0.95rem; border-bottom: 1px solid var(--border-color); padding-bottom: 6px;">Coding Question Details</h4>
+                <div class="form-group">
+                    <label class="form-label">Question Title</label>
+                    <input type="text" name="question_title" class="form-control" value="Write a Java program to print Hello World" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Description / Prompt</label>
+                    <textarea name="question_desc" class="form-control" style="height: 80px;" required>Write a Java program that outputs "Hello World" to standard console. Verify syntax conforms to typical compilers.</textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Initial Code Template</label>
+                    <textarea name="question_template" class="form-control" style="height: 100px; font-family: monospace;" required>public class Main {
+    public static void main(String[] args) {
+        // Write your code here
+        System.out.println("Hello World");
+    }
+}</textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Expected Output Match</label>
+                    <input type="text" name="question_expected" class="form-control" value="Hello World" required>
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 16px;">Publish Exam</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Exams List -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Published Exams</h3>
+        </div>
+        <div class="card-body" style="padding: 0;">
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Exam ID</th>
+                            <th>Exam Name</th>
+                            <th>Duration</th>
+                            <th>Total Marks</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if exams %}
+                            {% for exam in exams %}
+                                <tr>
+                                    <td>#{{ exam.id }}</td>
+                                    <td><strong>{{ exam.name }}</strong></td>
+                                    <td>{{ exam.duration_mins }} Mins</td>
+                                    <td>{{ exam.total_marks }} Marks</td>
+                                    <td><span class="badge badge-success">Published</span></td>
+                                    <td>
+                                        <a href="{{ url_for('delete_exam', exam_id=exam.id) }}" class="btn btn-danger" style="font-size:0.75rem;padding:6px 12px" onclick="return confirm('Delete this exam permanently?')">Delete</a>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="6" style="text-align: center; color: var(--text-secondary); padding: 32px 0;">
+                                    No exams published yet.
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

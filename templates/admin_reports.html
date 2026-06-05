@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+
+{% block title_header %}Exam Reports{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Exam Reports & Analytics</h1>
+    <p>Analyze candidate scores, warning frequency, and integrity indicators.</p>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Completed Assessments</h3>
+    </div>
+    <div class="card-body" style="padding: 0;">
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Attempt ID</th>
+                        <th>Candidate</th>
+                        <th>Exam Name</th>
+                        <th>Score</th>
+                        <th>Warnings Logged</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if reports %}
+                        {% for report in reports %}
+                            <tr>
+                                <td>#{{ report.attempt_id }}</td>
+                                <td>
+                                    <strong>{{ report.student_name }}</strong><br>
+                                    <span style="font-size:0.75rem; color:var(--text-secondary);">{{ report.student_email }}</span>
+                                </td>
+                                <td>{{ report.exam_name }}</td>
+                                <td>
+                                    <strong style="font-size:1.1rem; color:var(--primary);">{{ report.score }}</strong> / 100
+                                </td>
+                                <td>
+                                    {% if report.warnings_count >= 3 %}
+                                        <span class="badge badge-danger">{{ report.warnings_count }} Alerts</span>
+                                    {% elif report.warnings_count > 0 %}
+                                        <span class="badge badge-warning">{{ report.warnings_count }} Alerts</span>
+                                    {% else %}
+                                        <span class="badge badge-success">0 Alerts (Clean)</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge badge-success">Submitted</span>
+                                </td>
+                                <td>
+                                    <a href="{{ url_for('admin_report_details', attempt_id=report.attempt_id) }}" class="btn btn-secondary" style="font-size:0.75rem;padding:6px 12px">
+                                        <i class="fa-solid fa-magnifying-glass"></i> View Details
+                                    </a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="7" style="text-align: center; color: var(--text-secondary); padding: 32px 0;">
+                                No completed exam reports found.
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

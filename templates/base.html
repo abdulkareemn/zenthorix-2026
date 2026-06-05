@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ProctorAI - Remote Proctoring System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- CodeMirror CDN (for beautiful code editor rendering) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/dracula.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/clike/clike.min.js"></script> <!-- Java support -->
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-icon">P</div>
+                <span>ProctorAI</span>
+            </div>
+            
+            <ul class="nav-menu">
+                {% if session.get('role') == 'admin' %}
+                    <li class="nav-item {% if request.path == '/admin/dashboard' %}active{% endif %}">
+                        <a href="{{ url_for('admin_dashboard') }}"><i class="fa-solid fa-chart-line"></i> Dashboard</a>
+                    </li>
+                    <li class="nav-item {% if request.path == '/admin/candidates' %}active{% endif %}">
+                        <a href="{{ url_for('admin_candidates') }}"><i class="fa-solid fa-users"></i> Candidates</a>
+                    </li>
+                    <li class="nav-item {% if request.path == '/admin/exams' %}active{% endif %}">
+                        <a href="{{ url_for('admin_exams') }}"><i class="fa-solid fa-file-code"></i> Exams</a>
+                    </li>
+                    <li class="nav-item {% if request.path == '/admin/live' %}active{% endif %}">
+                        <a href="{{ url_for('admin_live') }}"><i class="fa-solid fa-video"></i> Live Proctoring</a>
+                    </li>
+                    <li class="nav-item {% if request.path == '/admin/reports' %}active{% endif %}">
+                        <a href="{{ url_for('admin_reports') }}"><i class="fa-solid fa-clipboard-list"></i> Reports</a>
+                    </li>
+                    <li class="nav-item {% if request.path == '/admin/settings' %}active{% endif %}">
+                        <a href="{{ url_for('admin_settings') }}"><i class="fa-solid fa-sliders"></i> Settings</a>
+                    </li>
+                {% else %}
+                    <li class="nav-item {% if request.path == '/student/dashboard' %}active{% endif %}">
+                        <a href="{{ url_for('student_dashboard') }}"><i class="fa-solid fa-house"></i> Dashboard</a>
+                    </li>
+                    <li class="nav-item {% if request.path == '/student/profile' %}active{% endif %}">
+                        <a href="{{ url_for('student_profile') }}"><i class="fa-solid fa-user"></i> Profile</a>
+                    </li>
+                    <li class="nav-item {% if request.path == '/student/results' %}active{% endif %}">
+                        <a href="{{ url_for('student_results') }}"><i class="fa-solid fa-chart-bar"></i> Results</a>
+                    </li>
+                {% endif %}
+            </ul>
+            
+            <div class="sidebar-footer">
+                <li class="nav-item" style="list-style:none;">
+                    <a href="{{ url_for('logout') }}" style="color: #fca5a5;"><i class="fa-solid fa-sign-out-alt"></i> Sign Out</a>
+                </li>
+            </div>
+        </aside>
+        
+        <!-- Main Content Area -->
+        <div class="main-wrapper">
+            <!-- Topbar header -->
+            <header class="top-bar">
+                <div class="top-bar-title">
+                    {% block title_header %}Dashboard{% endblock %}
+                </div>
+                <div class="user-profile-menu">
+                    <span class="user-name">{{ session.get('name', 'User') }}</span>
+                    <i class="fa-solid fa-circle-user" style="font-size: 2rem; color: var(--primary);"></i>
+                </div>
+            </header>
+            
+            <!-- Dynamic Content Page -->
+            <main class="main-content">
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

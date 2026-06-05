@@ -1,0 +1,140 @@
+{% extends 'base.html' %}
+
+{% block title_header %}Live Proctoring Console{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display:flex; justify-content:space-between; align-items:center;">
+    <div>
+        <h1>Live Monitoring Grid</h1>
+        <p>Observe candidate camera feeds, screen sharing state, and cheating indicators in real-time.</p>
+    </div>
+    <div style="display:flex; align-items:center; gap:8px;">
+        <span class="badge badge-danger" style="animation: pulse-live 1s infinite alternate; font-size:0.8rem; padding: 6px 12px;">
+            <i class="fa-solid fa-tower-broadcast"></i> LIVE SYNC ACTIVE
+        </span>
+    </div>
+</div>
+
+<div class="proctor-grid" id="proctor-grid-box">
+    <!-- Populated dynamically via JS -->
+    <div style="grid-column: 1/-1; text-align: center; color: var(--text-secondary); padding: 48px 0;" id="empty-state">
+        <i class="fa-solid fa-spinner fa-spin" style="font-size: 2.5rem; margin-bottom: 16px; color: var(--primary);"></i>
+        <h4>Waiting for active candidates...</h4>
+        <p style="font-size:0.85rem;margin-top:6px">Start an exam in a separate window to view the feed here.</p>
+    </div>
+</div>
+
+<style>
+    @keyframes pulse-live {
+        0% { opacity: 0.4; }
+        100% { opacity: 1; }
+    }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const gridBox = document.getElementById('proctor-grid-box');
+        const emptyState = document.getElementById('empty-state');
+        
+        async function fetchLiveSessions() {
+            try {
+                const response = await fetch('/admin/live/sessions');
+                const sessions = await response.json();
+                
+                if (sessions.error) {
+                    console.error(sessions.error);
+                    return;
+                }
+                
+                if (sessions.length === 0) {
+                    gridBox.innerHTML = '';
+                    gridBox.appendChild(emptyState);
+                    emptyState.style.display = 'block';
+                    return;
+                }
+                
+                emptyState.style.display = 'none';
+                
+                // Clear and rebuild grid
+                gridBox.innerHTML = '';
+                
+                sessions.forEach(session => {
+                    const card = document.createElement('div');
+                    card.className = 'proctor-monitor-card';
+                    
+                    // Webcam frame
+                    let imgHtml = '';
+                    if (session.webcam_frame) {
+                        imgHtml = `<img src="${session.webcam_frame}" alt="webcam feed">`;
+                    } else {
+                        imgHtml = `<div class="no-feed"><i class="fa-solid fa-video-slash" style="font-size:1.5rem;margin-bottom:8px"></i><br>No camera frame synced</div>`;
+                    }
+                    
+                    // Screen state badge
+                    const screenBadge = session.screen_status === 'shared' 
+                        ? '<span class="badge badge-success"><i class="fa-solid fa-desktop"></i> Screen Shared</span>'
+                        : '<span class="badge badge-danger"><i class="fa-solid fa-desktop"></i> Screen Offline</span>';
+                        
+                    // Warning status
+                    const warnClass = session.warnings_count >= 3 ? 'warn-danger' : 'warn-safe';
+                    const statusText = session.warnings_count >= 3 ? 'CRITICAL LIMIT' : 'Monitoring Safe';
+                    
+                    // Build log lines
+                    let logsHtml = '';
+                    if (session.recent_logs && session.recent_logs.length > 0) {
+                        session.recent_logs.forEach(log => {
+                            logsHtml += `
+                                <div style="display:flex; justify-content:space-between; font-size:0.75rem; border-bottom:1px solid #f1f5f9; padding:4px 0;">
+                                    <span style="color:var(--danger);font-weight:600;">[${log.alert_type}]</span>
+                                    <span style="color:var(--text-secondary); text-align:right;">${log.timestamp}</span>
+                                </div>
+                            `;
+                        });
+                    } else {
+                        logsHtml = '<div style="font-size:0.75rem;color:var(--text-muted);text-align:center;padding:4px 0;">No flags recorded.</div>';
+                    }
+                    
+                    card.innerHTML = `
+                        <div class="proctor-monitor-feed">
+                            ${imgHtml}
+                            <div class="rec-badge" style="top:10px; right:10px;">
+                                <div class="rec-dot"></div> LIVE
+                            </div>
+                        </div>
+                        <div class="proctor-monitor-info">
+                            <div class="proctor-monitor-name">${session.student_name}</div>
+                            <div class="proctor-monitor-exam">${session.exam_name}</div>
+                            
+                            <div style="display:flex; justify-content:space-between; margin:8px 0; align-items:center;">
+                                ${screenBadge}
+                                <span class="badge ${session.current_status === 'active' ? 'badge-success' : 'badge-warning'}">${session.current_status.toUpperCase()}</span>
+                            </div>
+                            
+                            <div class="proctor-monitor-warnings ${warnClass}">
+                                <span>Warnings: <strong>${session.warnings_count}</strong></span>
+                                <span style="font-size:0.7rem; font-weight:700;">${statusText}</span>
+                            </div>
+                            
+                            <div style="margin-top:10px; border-top:1px solid #e2e8f0; padding-top:8px;">
+                                <div style="font-size:0.75rem; font-weight:700; color:var(--text-secondary); margin-bottom:6px;">RECENT ALERTS</div>
+                                ${logsHtml}
+                            </div>
+                            
+                            <a href="/admin/reports/${session.attempt_id}" class="btn btn-secondary" style="font-size:0.75rem; padding:6px 12px; margin-top:12px; width:100%;">Inspect Logs</a>
+                        </div>
+                    `;
+                    gridBox.appendChild(card);
+                });
+            } catch (err) {
+                console.error("Error polling live sessions:", err);
+            }
+        }
+        
+        // Poll every 3 seconds
+        setInterval(fetchLiveSessions, 3000);
+        fetchLiveSessions();
+    });
+</script>
+{% endblock %}

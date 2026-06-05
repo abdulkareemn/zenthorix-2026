@@ -1,0 +1,134 @@
+{% extends 'base.html' %}
+
+{% block title_header %}Student Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Welcome back, {{ session.get('name', 'Student') }}</h1>
+    <p>View your upcoming proctored assessments and historical performance.</p>
+</div>
+
+<!-- Stats Grid -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-info">
+            <h3>Assigned Exams</h3>
+            <div class="stat-value">{{ total_assigned }}</div>
+        </div>
+        <div class="stat-icon icon-purple">
+            <i class="fa-solid fa-list-check"></i>
+        </div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-info">
+            <h3>Completed</h3>
+            <div class="stat-value">{{ completed_count }}</div>
+        </div>
+        <div class="stat-icon icon-green">
+            <i class="fa-solid fa-circle-check"></i>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-info">
+            <h3>Pending</h3>
+            <div class="stat-value">{{ pending_count }}</div>
+        </div>
+        <div class="stat-icon icon-warning">
+            <i class="fa-solid fa-clock"></i>
+        </div>
+    </div>
+</div>
+
+<div class="dashboard-grid">
+    <!-- Left Column: Exams List -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Assigned Assessments</h3>
+        </div>
+        <div class="card-body" style="padding: 0;">
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Exam ID</th>
+                            <th>Exam Name</th>
+                            <th>Duration</th>
+                            <th>Total Marks</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if exams %}
+                            {% for exam in exams %}
+                                <tr>
+                                    <td>#{{ exam.id }}</td>
+                                    <td><strong>{{ exam.name }}</strong></td>
+                                    <td>{{ exam.duration_mins }} Mins</td>
+                                    <td>{{ exam.total_marks }} Marks</td>
+                                    <td>
+                                        {% if exam.id in attempts %}
+                                            {% if attempts[exam.id].status == 'submitted' %}
+                                                <span class="badge badge-warning">Pending Review</span>
+                                            {% else %}
+                                                <span class="badge badge-success">Completed</span>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="badge badge-primary">Assigned</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if exam.id in attempts %}
+                                            {% if attempts[exam.id].status == 'submitted' %}
+                                                <a href="{{ url_for('student_results') }}" class="btn btn-secondary" style="font-size:0.75rem;padding:6px 12px">View Receipt</a>
+                                            {% else %}
+                                                <a href="{{ url_for('student_results') }}" class="btn btn-secondary" style="font-size:0.75rem;padding:6px 12px">View Score</a>
+                                            {% endif %}
+                                        {% else %}
+                                            <a href="{{ url_for('student_verify', exam_id=exam.id) }}" class="btn btn-primary" style="font-size:0.75rem;padding:6px 12px">Start Assessment</a>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="6" style="text-align: center; color: var(--text-secondary); padding: 32px 0;">
+                                    No assessments assigned at this time.
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Column: Recent Activity Logs -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Recent Activity</h3>
+        </div>
+        <div class="card-body">
+            <ul style="list-style: none; display: flex; flex-direction: column; gap: 14px;">
+                {% if activities %}
+                    {% for act in activities %}
+                        <li style="display: flex; gap: 12px; font-size: 0.85rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 10px;">
+                            <div style="color: var(--success); font-size: 1.1rem;"><i class="fa-solid fa-circle-check"></i></div>
+                            <div>
+                                <strong style="display: block;">Submitted {{ act.exam_name }}</strong>
+                                <span style="color: var(--text-secondary); font-size: 0.75rem;">Completed on {{ act.end_time }}</span>
+                            </div>
+                        </li>
+                    {% endfor %}
+                {% else %}
+                    <li style="text-align: center; color: var(--text-secondary); padding: 16px 0;">
+                        No recent exam submissions found.
+                    </li>
+                {% endif %}
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
