@@ -138,7 +138,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // 4. Access Media Devices (Webcam, Mic, Real Screen Share)
+    // 4. Access Media Devices (Webcam, Mic) + Auto Page Capture (no picker)
     const initMedia = async () => {
         // Request real webcam & mic stream
         webcamStream = await navigator.mediaDevices.getUserMedia({
@@ -150,58 +150,62 @@ document.addEventListener('DOMContentLoaded', () => {
         // Start Microphone volume analyzer
         initAudioAnalyzer(webcamStream);
 
-        // Request REAL screen share via getDisplayMedia
-        try {
-            screenStream = await navigator.mediaDevices.getDisplayMedia({
-                video: { cursor: 'always', displaySurface: 'monitor' },
-                audio: false
-            });
+        // Auto-capture the exam page using html2canvas — no picker, no user interaction.
+        // This records the actual assessment page content as a canvas video stream.
+        const pageCanvas = document.createElement('canvas');
+        pageCanvas.width = 1280;
+        pageCanvas.height = 720;
+        const pageCtx = pageCanvas.getContext('2d');
 
-            // Detect if candidate manually stops screen share during exam
-            const track = screenStream.getVideoTracks()[0];
-            if (track) {
-                track.addEventListener('ended', () => {
-                    if (isExamActive) {
-                        addActivityLog('Screen sharing stopped by candidate.');
-                        triggerViolation('Screen Share Stopped', 'Candidate stopped screen sharing during the exam.');
-                    }
+        // Draw an initial placeholder frame
+        const drawPlaceholder = (label) => {
+            pageCtx.fillStyle = '#0f172a';
+            pageCtx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+            pageCtx.fillStyle = '#38bdf8';
+            pageCtx.font = 'bold 20px sans-serif';
+            pageCtx.fillText('ProctorAI — Secure Exam Session', 40, 60);
+            pageCtx.fillStyle = '#94a3b8';
+            pageCtx.font = '15px sans-serif';
+            pageCtx.fillText(label || 'Initializing screen capture...', 40, 100);
+            pageCtx.fillText('Time: ' + new Date().toLocaleString(), 40, 130);
+        };
+        drawPlaceholder('Starting...');
+
+        // Periodically capture the current exam page to canvas
+        const captureExamPage = () => {
+            if (typeof html2canvas !== 'undefined') {
+                html2canvas(document.documentElement, {
+                    scale: 0.6,
+                    useCORS: true,
+                    logging: false,
+                    width: window.innerWidth,
+                    height: window.innerHeight,
+                    windowWidth: window.innerWidth,
+                    windowHeight: window.innerHeight,
+                    x: 0,
+                    y: window.scrollY || 0,
+                    ignoreElements: (el) => el.id === 'upload-overlay' || el.id === 'warning-overlay'
+                }).then(snapshot => {
+                    pageCtx.drawImage(snapshot, 0, 0, pageCanvas.width, pageCanvas.height);
+                }).catch(() => {
+                    drawPlaceholder('Exam session active');
                 });
+            } else {
+                drawPlaceholder('Exam session active');
             }
-        } catch (err) {
-            // Fallback: use canvas if user denies screen share
-            console.warn('Screen share denied or unavailable:', err);
+        };
 
-            const screenCanvas = document.createElement('canvas');
-            screenCanvas.width = 640;
-            screenCanvas.height = 480;
-            const screenCtx = screenCanvas.getContext('2d');
+        // Capture immediately, then every 2.5 seconds
+        captureExamPage();
+        setInterval(captureExamPage, 2500);
 
-            const drawDenied = () => {
-                screenCtx.fillStyle = '#1e1e2e';
-                screenCtx.fillRect(0, 0, screenCanvas.width, screenCanvas.height);
-                screenCtx.fillStyle = '#ef4444';
-                screenCtx.font = 'bold 22px sans-serif';
-                screenCtx.fillText('Screen Share Denied', 50, 90);
-                screenCtx.fillStyle = '#94a3b8';
-                screenCtx.font = '15px sans-serif';
-                screenCtx.fillText('Candidate did not allow screen monitoring.', 50, 130);
-                screenCtx.fillStyle = '#64748b';
-                screenCtx.fillText('Time: ' + new Date().toLocaleTimeString(), 50, 170);
-            };
-            drawDenied();
-            setInterval(drawDenied, 1000);
-            screenStream = screenCanvas.captureStream(5);
-
-            setTimeout(() => {
-                if (isExamActive) {
-                    triggerViolation('Screen Share Denied', 'Candidate denied screen sharing permission required for proctoring.');
-                }
-            }, 2000);
-        }
+        // Create the media stream from the canvas (2fps is enough for proctoring audit)
+        screenStream = pageCanvas.captureStream(2);
 
         // Start motion tracker loop
         setInterval(checkMotion, 800);
     };
+
     
     // Audio volume level monitor
     const initAudioAnalyzer = (stream) => {

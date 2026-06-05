@@ -202,9 +202,9 @@
                 To ensure integrity, this exam runs in a locked environment. Clicking the button below will:
             </p>
             <div style="text-align: left; max-width: 440px; margin: 0 auto 24px; font-size: 0.9rem; line-height: 1.6;">
-                • Request webcam and microphone stream authorization<br>
-                • Prompt for screen-sharing stream authorization (Select "Entire Screen")<br>
-                • Lock the browser window into Fullscreen Mode
+                &bull; Request webcam and microphone stream authorization<br>
+                &bull; Automatically begin recording the assessment page<br>
+                &bull; Lock the browser window into Fullscreen Mode
             </div>
             <button class="btn btn-primary" id="btn-start-secure-mode" style="width: 100%; padding: 14px;">
                 Launch Secure Environment
@@ -232,6 +232,8 @@
         window.examTimeRemaining = {{ time_remaining }};
         window.examRules = {{ exam.rules_json | safe }};
     </script>
+    <!-- html2canvas for automatic exam page recording (no picker needed) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="{{ url_for('static', filename='js/main.js') }}?v={{ range(1, 100000) | random }}"></script>
     <script src="{{ url_for('static', filename='js/exam.js') }}?v={{ range(1, 100000) | random }}"></script>
     
