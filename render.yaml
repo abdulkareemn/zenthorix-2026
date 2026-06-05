@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: proctor-ai
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python app.py
+    envVars:
+      - key: DATABASE_URI
+        sync: false
