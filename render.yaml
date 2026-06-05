@@ -2,9 +2,10 @@ services:
   - type: web
     name: proctor-ai
     runtime: python
-    pythonVersion: "3.11.9"
     buildCommand: pip install -r requirements.txt
     startCommand: python app.py
     envVars:
       - key: DATABASE_URI
         sync: false
+      - key: PYTHON_VERSION
+        value: 3.11.9
