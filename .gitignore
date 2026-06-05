@@ -1,0 +1,16 @@
+# Environment variables (contains DB credentials)
+.env
+
+# SQLite database (no longer used)
+database.db
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Sandbox run directories
+sandbox/run_*/
+
+# Uploaded recordings
+static/uploads/*.webm
