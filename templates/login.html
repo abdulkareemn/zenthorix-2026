@@ -7,79 +7,200 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
-<body class="login-container">
-    <div class="login-box">
-        <div class="login-header">
-            <div class="brand" style="justify-content: center; margin-bottom: 12px; padding-left: 0;">
-                <div class="brand-icon">P</div>
-                <span style="color:#0f172a">ProctorAI</span>
-            </div>
-            <p style="color:var(--text-secondary);font-size:0.9rem">Remote examination monitoring platform</p>
-        </div>
+<body class="login-body">
+    <!-- Animated background glowing orbs -->
+    <div class="login-bg-glows">
+        <div class="glow-circle glow-circle-1"></div>
+        <div class="glow-circle glow-circle-2"></div>
+        <div class="glow-circle glow-circle-3"></div>
+    </div>
+    <!-- Technical background grid lines -->
+    <div class="login-bg-grid"></div>
 
-        {% if error %}
-            <div class="alert-message alert-danger">
-                <i class="fa-solid fa-triangle-exclamation"></i> {{ error }}
-            </div>
-        {% endif %}
+    <div class="login-split-container">
         
-        {% if success %}
-            <div class="alert-message alert-success">
-                <i class="fa-solid fa-circle-check"></i> {{ success }}
+        <!-- LEFT SIDE: BRANDING PANEL (55% width) -->
+        <div class="login-brand-panel">
+            <div class="login-brand-top">
+                <img src="{{ url_for('static', filename='zenthorix-logo.png') }}?v=4" alt="Zenthorix Logo" class="login-brand-logo-img">
             </div>
-        {% endif %}
-
-        <!-- Role Toggle -->
-        <div class="login-toggle" id="role-toggle">
-            <div class="login-toggle-btn active" onclick="setRole('student')">Candidate</div>
-            <div class="login-toggle-btn" onclick="setRole('admin')">Proctor</div>
+            
+            <div class="login-brand-middle">
+                <!-- Small badge at top of content -->
+                <div class="login-badge-light">
+                    <i class="fa-solid fa-robot"></i>
+                    <span>AI-Powered Examination Platform</span>
+                </div>
+                
+                <h1 class="login-headline">Secure Online Examination Platform</h1>
+                <p class="login-subheading">AI-powered proctoring for institutions, universities, certification bodies, and recruitment assessments.</p>
+                
+                <!-- Horizontal Feature Cards -->
+                <div class="login-feature-cards">
+                    <!-- Card 1 -->
+                    <div class="login-feature-card">
+                        <div class="feature-card-icon"><i class="fa-solid fa-user-check"></i></div>
+                        <div class="feature-card-text">
+                            <h3>AI Face Verification</h3>
+                            <p>Verify candidate identity before and during exams.</p>
+                        </div>
+                    </div>
+                    <!-- Card 2 -->
+                    <div class="login-feature-card">
+                        <div class="feature-card-icon"><i class="fa-solid fa-desktop"></i></div>
+                        <div class="feature-card-text">
+                            <h3>Real-Time Monitoring</h3>
+                            <p>Simultaneous webcam and screen capture tracking.</p>
+                        </div>
+                    </div>
+                    <!-- Card 3 -->
+                    <div class="login-feature-card">
+                        <div class="feature-card-icon"><i class="fa-solid fa-shield-halved"></i></div>
+                        <div class="feature-card-text">
+                            <h3>Secure Exam Environment</h3>
+                            <p>Enforced full-screen browser lockdown and restrictions.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="login-brand-footer">
+                &copy; 2026 ProctorAI. Enterprise Grade Online Assessment Integrity.
+            </div>
         </div>
 
-        <!-- Login Form -->
-        <form id="login-form" action="{{ url_for('login') }}" method="POST">
-            <input type="hidden" name="role" id="form-role" value="student">
-            
-            <div class="form-group">
-                <label class="form-label">Email Address</label>
-                <input type="email" name="email" class="form-control" placeholder="name@domain.com" required value="student@proctor.ai">
+        <!-- RIGHT SIDE: AUTHENTICATION PANEL (45% width) -->
+        <div class="login-auth-panel">
+            <a href="/" class="login-back-btn">
+                <i class="fa-solid fa-arrow-left"></i>
+                <span>Back to Home</span>
+            </a>
+            <div class="login-box-premium">
+                
+                <div class="login-header-premium">
+                    <h2 id="card-header-title">Welcome back</h2>
+                    <p id="card-header-tagline">Please enter your credentials to log in.</p>
+                </div>
+
+                {% if error %}
+                    <div class="alert-message alert-danger">
+                        <i class="fa-solid fa-triangle-exclamation"></i> {{ error }}
+                    </div>
+                {% endif %}
+                
+                {% if success %}
+                    <div class="alert-message alert-success">
+                        <i class="fa-solid fa-circle-check"></i> {{ success }}
+                    </div>
+                {% endif %}
+
+                <!-- Sliding Role Toggle -->
+                <div class="login-toggle-segmented" id="role-toggle">
+                    <div class="segmented-slider"></div>
+                    <div class="login-toggle-segmented-btn active" onclick="setRole('student')">Candidate</div>
+                    <div class="login-toggle-segmented-btn" onclick="setRole('admin')">Proctor</div>
+                </div>
+
+                <!-- Login Form -->
+                <form id="login-form" action="{{ url_for('login') }}" method="POST">
+                    <input type="hidden" name="role" id="form-role" value="student">
+                    
+                    <div class="premium-form-group">
+                        <label class="premium-form-label">Email Address</label>
+                        <div class="premium-input-wrapper">
+                            <i class="fa-solid fa-envelope premium-input-icon"></i>
+                            <input type="email" name="email" class="premium-input-control" placeholder="name@domain.com" required value="student@proctor.ai">
+                        </div>
+                    </div>
+
+                    <div class="premium-form-group">
+                        <label class="premium-form-label">Password</label>
+                        <div class="premium-input-wrapper">
+                            <i class="fa-solid fa-lock premium-input-icon"></i>
+                            <input type="password" name="password" id="login-password" class="premium-input-control" placeholder="••••••••" required value="studentSecure98!_Z">
+                            <button type="button" class="password-toggle-trigger" onclick="togglePasswordVisibility('login-password', this)">
+                                <i class="fa-regular fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="form-options-row">
+                        <label class="remember-checkbox-label">
+                            <input type="checkbox" name="remember">
+                            <span>Remember Me</span>
+                        </label>
+                        <a href="#" class="forgot-password-link">Forgot Password?</a>
+                    </div>
+
+                    <button type="submit" class="btn-premium-submit">
+                        <span>Sign In</span>
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </form>
+
+                <!-- Register Toggle Link (Only for students) -->
+                <div class="login-footer" id="register-toggle-box">
+                    Don't have a candidate account? <a href="#" onclick="toggleRegisterForm(true)">Register here</a>
+                </div>
+
+                <!-- Register Form (hidden initially) -->
+                <form id="register-form" action="{{ url_for('register') }}" method="POST" style="display: none;">
+                    <div class="premium-form-group">
+                        <label class="premium-form-label">Full Name</label>
+                        <div class="premium-input-wrapper">
+                            <i class="fa-solid fa-user premium-input-icon"></i>
+                            <input type="text" name="name" class="premium-input-control" placeholder="John Doe" required>
+                        </div>
+                    </div>
+                    
+                    <div class="premium-form-group">
+                        <label class="premium-form-label">Email Address</label>
+                        <div class="premium-input-wrapper">
+                            <i class="fa-solid fa-envelope premium-input-icon"></i>
+                            <input type="email" name="email" class="premium-input-control" placeholder="name@domain.com" required>
+                        </div>
+                    </div>
+
+                    <div class="premium-form-group">
+                        <label class="premium-form-label">Password</label>
+                        <div class="premium-input-wrapper">
+                            <i class="fa-solid fa-lock premium-input-icon"></i>
+                            <input type="password" name="password" id="register-password" class="premium-input-control" placeholder="••••••••" required>
+                            <button type="button" class="password-toggle-trigger" onclick="togglePasswordVisibility('register-password', this)">
+                                <i class="fa-regular fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn-premium-submit" style="margin-top: 8px;">
+                        <span>Create Account</span>
+                        <i class="fa-solid fa-user-plus"></i>
+                    </button>
+                    
+                    <div class="login-footer" style="margin-top: 16px;">
+                        Already registered? <a href="#" onclick="toggleRegisterForm(false)">Log in here</a>
+                    </div>
+                </form>
+
+                <!-- Compact Trust Section positioned directly below the registration links inside the card -->
+                <div class="premium-trust-badges-compact">
+                    <span class="compact-trust-badge">
+                        <i class="fa-solid fa-shield-halved"></i>
+                        <span>Secure Auth</span>
+                    </span>
+                    <span class="compact-trust-badge">
+                        <i class="fa-solid fa-desktop"></i>
+                        <span>AI Monitoring</span>
+                    </span>
+                    <span class="compact-trust-badge">
+                        <i class="fa-solid fa-lock"></i>
+                        <span>Data Privacy</span>
+                    </span>
+                </div>
+
             </div>
-
-            <div class="form-group">
-                <label class="form-label">Password</label>
-                <input type="password" name="password" class="form-control" placeholder="••••••••" required value="student123">
-            </div>
-
-            <button type="submit" class="btn btn-primary" style="width: 100%; padding: 12px; margin-top: 8px;">Sign In</button>
-        </form>
-
-        <!-- Register Toggle Link (Only for students) -->
-        <div class="login-footer" id="register-toggle-box">
-            Don't have a candidate account? <a href="#" onclick="toggleRegisterForm(true)">Register here</a>
         </div>
 
-        <!-- Register Form (hidden initially) -->
-        <form id="register-form" action="{{ url_for('register') }}" method="POST" style="display: none;">
-            <div class="form-group">
-                <label class="form-label">Full Name</label>
-                <input type="text" name="name" class="form-control" placeholder="John Doe" required>
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">Email Address</label>
-                <input type="email" name="email" class="form-control" placeholder="name@domain.com" required>
-            </div>
-
-            <div class="form-group">
-                <label class="form-label">Password</label>
-                <input type="password" name="password" class="form-control" placeholder="••••••••" required>
-            </div>
-
-            <button type="submit" class="btn btn-primary" style="width: 100%; padding: 12px; margin-top: 8px;">Create Account</button>
-            
-            <div class="login-footer">
-                Already registered? <a href="#" onclick="toggleRegisterForm(false)">Log in here</a>
-            </div>
-        </form>
     </div>
 
     <script>
@@ -87,9 +208,17 @@
             document.getElementById('form-role').value = role;
             
             // Update active toggle class
-            const btns = document.querySelectorAll('#role-toggle .login-toggle-btn');
+            const btns = document.querySelectorAll('#role-toggle .login-toggle-segmented-btn');
             btns[0].classList.toggle('active', role === 'student');
             btns[1].classList.toggle('active', role === 'admin');
+            
+            // Slide indicator background
+            const toggleContainer = document.getElementById('role-toggle');
+            if (role === 'admin') {
+                toggleContainer.classList.add('role-admin-selected');
+            } else {
+                toggleContainer.classList.remove('role-admin-selected');
+            }
             
             // Adjust defaults for demo ease
             const emailInput = document.querySelector('input[name="email"]');
@@ -97,12 +226,12 @@
             
             if (role === 'admin') {
                 emailInput.value = 'admin@proctor.ai';
-                passInput.value = 'admin123';
+                passInput.value = 'adminSecure98!_Z';
                 document.getElementById('register-toggle-box').style.display = 'none';
                 toggleRegisterForm(false);
             } else {
                 emailInput.value = 'student@proctor.ai';
-                passInput.value = 'student123';
+                passInput.value = 'studentSecure98!_Z';
                 document.getElementById('register-toggle-box').style.display = 'block';
             }
         }
@@ -112,15 +241,21 @@
             const registerForm = document.getElementById('register-form');
             const toggle = document.getElementById('role-toggle');
             const toggleBox = document.getElementById('register-toggle-box');
+            const cardHeaderTitle = document.getElementById('card-header-title');
+            const cardHeaderTagline = document.getElementById('card-header-tagline');
             
             if (show) {
                 loginForm.style.display = 'none';
                 registerForm.style.display = 'block';
                 toggle.style.display = 'none';
                 toggleBox.style.display = 'none';
+                cardHeaderTitle.innerText = "Candidate Registration";
+                cardHeaderTagline.innerText = "Create an account to access assigned assessments.";
             } else {
                 loginForm.style.display = 'block';
                 registerForm.style.display = 'none';
+                cardHeaderTitle.innerText = "Welcome back";
+                cardHeaderTagline.innerText = "Please enter your credentials to log in.";
                 if (document.getElementById('form-role').value === 'student') {
                     toggle.style.display = 'flex';
                     toggleBox.style.display = 'block';
@@ -130,6 +265,28 @@
                 }
             }
         }
+
+        function togglePasswordVisibility(fieldId, btn) {
+            const field = document.getElementById(fieldId);
+            const icon = btn.querySelector('i');
+            if (field.type === 'password') {
+                field.type = 'text';
+                icon.className = 'fa-solid fa-eye-slash';
+            } else {
+                field.type = 'password';
+                icon.className = 'fa-regular fa-eye';
+            }
+        }
+
+        // Add loading indicators on submit
+        document.getElementById('login-form').addEventListener('submit', function() {
+            const btn = this.querySelector('button[type="submit"]');
+            btn.classList.add('loading');
+        });
+        document.getElementById('register-form').addEventListener('submit', function() {
+            const btn = this.querySelector('button[type="submit"]');
+            btn.classList.add('loading');
+        });
     </script>
 </body>
 </html>

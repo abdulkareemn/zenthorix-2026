@@ -3,6 +3,113 @@
 {% block title_header %}Student Dashboard{% endblock %}
 
 {% block content %}
+<style>
+    /* Reference image style assessment table styles */
+    .exam-info-cell {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .exam-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: white;
+    }
+    .exam-meta-sub {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        margin-top: 2px;
+    }
+    .progress-bar-container {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .progress-bar-track {
+        width: 60px;
+        height: 6px;
+        background-color: #e2e8f0;
+        border-radius: 10px;
+        overflow: hidden;
+    }
+    .progress-bar-fill {
+        height: 100%;
+        background-color: #0f172a;
+        border-radius: 10px;
+    }
+    
+    /* Pagination styling matching reference image */
+    .pagination-container {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px 24px;
+        border-top: 1px solid var(--border-color);
+        background-color: var(--bg-secondary);
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+    }
+    .pagination-controls {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .btn-page {
+        width: 32px;
+        height: 32px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        border: 1px solid var(--border-color);
+        background-color: white;
+        color: var(--text-primary);
+        cursor: pointer;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+    .btn-page:hover:not(:disabled) {
+        background-color: #f1f5f9;
+        border-color: #cbd5e1;
+    }
+    .btn-page:disabled {
+        color: var(--text-muted);
+        cursor: not-allowed;
+        opacity: 0.5;
+    }
+    .page-numbers {
+        display: flex;
+        gap: 4px;
+    }
+    .btn-page.active {
+        background-color: #000000;
+        color: #ffffff;
+        border-color: #000000;
+        font-weight: 600;
+    }
+    
+    /* Narrow cell padding, compact action buttons, and wider left column grid layout */
+    .table th, .table td {
+        padding: 12px 10px !important;
+    }
+    .btn-primary, .btn-secondary {
+        font-size: 0.72rem !important;
+        padding: 5px 10px !important;
+        border-radius: 6px !important;
+    }
+    @media (min-width: 1025px) {
+        .dashboard-grid {
+            grid-template-columns: 2.8fr 1fr !important;
+        }
+    }
+</style>
+
 <div class="page-header">
     <h1>Welcome back, {{ session.get('name', 'Student') }}</h1>
     <p>View your upcoming proctored assessments and historical performance.</p>
@@ -52,42 +159,59 @@
                 <table class="table">
                     <thead>
                         <tr>
-                            <th>Exam ID</th>
-                            <th>Exam Name</th>
-                            <th>Duration</th>
-                            <th>Total Marks</th>
-                            <th>Status</th>
-                            <th>Action</th>
+                            <th style="font-size: 0.75rem; letter-spacing: 0.05em; color: var(--text-secondary); text-transform: uppercase;">Assessment</th>
+                            <th style="font-size: 0.75rem; letter-spacing: 0.05em; color: var(--text-secondary); text-transform: uppercase;">Language</th>
+                            <th style="font-size: 0.75rem; letter-spacing: 0.05em; color: var(--text-secondary); text-transform: uppercase;">Duration</th>
+                            <th style="font-size: 0.75rem; letter-spacing: 0.05em; color: var(--text-secondary); text-transform: uppercase;">Total Marks</th>
+                            <th style="font-size: 0.75rem; letter-spacing: 0.05em; color: var(--text-secondary); text-transform: uppercase;">Status</th>
+                            <th style="font-size: 0.75rem; letter-spacing: 0.05em; color: var(--text-secondary); text-transform: uppercase; text-align: right;">Action</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% if exams %}
                             {% for exam in exams %}
-                                <tr>
-                                    <td>#{{ exam.id }}</td>
-                                    <td><strong>{{ exam.name }}</strong></td>
-                                    <td>{{ exam.duration_mins }} Mins</td>
-                                    <td>{{ exam.total_marks }} Marks</td>
+                                <tr class="exam-row">
                                     <td>
-                                        {% if exam.id in attempts %}
-                                            {% if attempts[exam.id].status == 'submitted' %}
-                                                <span class="badge badge-warning">Pending Review</span>
-                                            {% else %}
-                                                <span class="badge badge-success">Completed</span>
-                                            {% endif %}
-                                        {% else %}
-                                            <span class="badge badge-primary">Assigned</span>
-                                        {% endif %}
+                                        <div class="exam-info-cell">
+                                            <div class="exam-avatar" style="background-color: {% if loop.index % 3 == 0 %}#8b5cf6{% elif loop.index % 3 == 1 %}#3b82f6{% else %}#10b981{% endif %};">
+                                                {{ exam.name[0] | upper }}
+                                            </div>
+                                            <div>
+                                                <div style="font-weight: 600; color: var(--text-primary);">{{ exam.name }}</div>
+                                                <div class="exam-meta-sub">#EXAM-{{ exam.id }} • Online</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td style="color: var(--text-primary); font-weight: 500;">Java</td>
+                                    <td style="color: var(--text-secondary);">{{ exam.duration_mins }} Mins</td>
+                                    <td>
+                                        <div class="progress-bar-container">
+                                            <span style="font-weight: 600; font-size: 0.85rem; color: var(--text-primary);">100%</span>
+                                            <div class="progress-bar-track">
+                                                <div class="progress-bar-fill" style="width: 100%;"></div>
+                                            </div>
+                                        </div>
                                     </td>
                                     <td>
                                         {% if exam.id in attempts %}
                                             {% if attempts[exam.id].status == 'submitted' %}
-                                                <a href="{{ url_for('student_results') }}" class="btn btn-secondary" style="font-size:0.75rem;padding:6px 12px">View Receipt</a>
+                                                <span class="badge" style="background-color: #fef3c7; color: #d97706; border: 1px solid #fde68a;">Pending Review</span>
                                             {% else %}
-                                                <a href="{{ url_for('student_results') }}" class="btn btn-secondary" style="font-size:0.75rem;padding:6px 12px">View Score</a>
+                                                <span class="badge" style="background-color: #d1fae5; color: #059669; border: 1px solid #a7f3d0;">Completed</span>
                                             {% endif %}
                                         {% else %}
-                                            <a href="{{ url_for('student_verify', exam_id=exam.id) }}" class="btn btn-primary" style="font-size:0.75rem;padding:6px 12px">Start Assessment</a>
+                                            <span class="badge" style="background-color: #e0e7ff; color: #4f46e5; border: 1px solid #c7d2fe;">Assigned</span>
+                                        {% endif %}
+                                    </td>
+                                    <td style="text-align: right;">
+                                        {% if exam.id in attempts %}
+                                            {% if attempts[exam.id].status == 'submitted' %}
+                                                <a href="{{ url_for('student_results') }}" class="btn btn-secondary" style="font-size:0.75rem; padding:6px 12px; border-radius: 6px;">View Receipt</a>
+                                            {% else %}
+                                                <a href="{{ url_for('student_results') }}" class="btn btn-secondary" style="font-size:0.75rem; padding:6px 12px; border-radius: 6px;">View Score</a>
+                                            {% endif %}
+                                        {% else %}
+                                            <a href="{{ url_for('student_verify', exam_id=exam.id) }}" class="btn btn-primary" style="font-size:0.75rem; padding:6px 12px; border-radius: 6px; background-color: var(--primary);">Start Assessment</a>
                                         {% endif %}
                                     </td>
                                 </tr>
@@ -101,6 +225,15 @@
                         {% endif %}
                     </tbody>
                 </table>
+            </div>
+            
+            <div class="pagination-container">
+                <div class="pagination-info">Showing <span id="pagination-start">0</span>–<span id="pagination-end">0</span> of <span id="pagination-total">0</span></div>
+                <div class="pagination-controls">
+                    <button class="btn-page" id="btn-prev" disabled><i class="fa-solid fa-chevron-left"></i></button>
+                    <div id="page-numbers" class="page-numbers"></div>
+                    <button class="btn-page" id="btn-next"><i class="fa-solid fa-chevron-right"></i></button>
+                </div>
             </div>
         </div>
     </div>
@@ -131,4 +264,67 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const rows = Array.from(document.querySelectorAll('.exam-row'));
+    const itemsPerPage = 3;
+    let currentPage = 1;
+    const totalItems = rows.length;
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    
+    const pageNumbersContainer = document.getElementById('page-numbers');
+    const btnPrev = document.getElementById('btn-prev');
+    const btnNext = document.getElementById('btn-next');
+    const txtStart = document.getElementById('pagination-start');
+    const txtEnd = document.getElementById('pagination-end');
+    const txtTotal = document.getElementById('pagination-total');
+    
+    function updatePage(page) {
+        currentPage = page;
+        
+        // Hide all rows, show only current page rows
+        const startIdx = (currentPage - 1) * itemsPerPage;
+        const endIdx = Math.min(startIdx + itemsPerPage, totalItems);
+        
+        rows.forEach((row, idx) => {
+            if (idx >= startIdx && idx < endIdx) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+        
+        // Update text
+        txtStart.innerText = totalItems === 0 ? 0 : startIdx + 1;
+        txtEnd.innerText = endIdx;
+        txtTotal.innerText = totalItems;
+        
+        // Update button states
+        btnPrev.disabled = currentPage === 1;
+        btnNext.disabled = currentPage === totalPages || totalPages === 0;
+        
+        // Render page numbers
+        pageNumbersContainer.innerHTML = '';
+        for (let i = 1; i <= totalPages; i++) {
+            const btn = document.createElement('button');
+            btn.className = `btn-page ${i === currentPage ? 'active' : ''}`;
+            btn.innerText = i;
+            btn.addEventListener('click', () => updatePage(i));
+            pageNumbersContainer.appendChild(btn);
+        }
+    }
+    
+    btnPrev.addEventListener('click', () => {
+        if (currentPage > 1) updatePage(currentPage - 1);
+    });
+    btnNext.addEventListener('click', () => {
+        if (currentPage < totalPages) updatePage(currentPage + 1);
+    });
+    
+    updatePage(1);
+});
+</script>
 {% endblock %}

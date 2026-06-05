@@ -27,23 +27,7 @@
 {% endif %}
 
 <div class="dashboard-grid">
-    <!-- Left Column: Pending review note -->
-    <div class="card">
-        <div class="card-header">
-            <h3 class="card-title">Proctor Review Status</h3>
-        </div>
-        <div class="card-body">
-            <div style="text-align: center; padding: 16px 0; color: var(--text-secondary);">
-                <i class="fa-solid fa-user-shield" style="font-size: 2.5rem; color: var(--primary); margin-bottom: 16px;"></i>
-                <h4>Pending Admin Review</h4>
-                <p style="font-size:0.85rem; margin-top:8px; line-height: 1.5;">
-                    Scores and proctoring metrics will appear here after the proctors have audited the session video frame feeds and warning logs.
-                </p>
-            </div>
-        </div>
-    </div>
-
-    <!-- Right Column: Submission History Scores -->
+    <!-- Left Column: Submission History Scores -->
     <div class="card">
         <div class="card-header">
             <h3 class="card-title">Completed Scores</h3>
@@ -84,6 +68,22 @@
                         {% endif %}
                     </tbody>
                 </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Column: Pending review note -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Proctor Review Status</h3>
+        </div>
+        <div class="card-body">
+            <div style="text-align: center; padding: 16px 0; color: var(--text-secondary);">
+                <i class="fa-solid fa-user-shield" style="font-size: 2.5rem; color: var(--primary); margin-bottom: 16px;"></i>
+                <h4>Pending Admin Review</h4>
+                <p style="font-size:0.85rem; margin-top:8px; line-height: 1.5;">
+                    Scores and proctoring metrics will appear here after the proctors have audited the session video frame feeds and warning logs.
+                </p>
             </div>
         </div>
     </div>

@@ -4,8 +4,9 @@ import json
 import time
 import subprocess
 import shutil
+import queue
 from datetime import datetime
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify, g
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify, g, Response
 
 app = Flask(__name__)
 app.secret_key = 'proctor_ai_super_secret_key_12345'
@@ -118,14 +119,31 @@ def init_db():
                 auto_submit INTEGER
             )
         ''')
+
+        # Malpractice Notifications Table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS malpractice_notifications (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                attempt_id INTEGER NOT NULL,
+                candidate_name TEXT NOT NULL,
+                exam_name TEXT NOT NULL,
+                violation_type TEXT NOT NULL,
+                description TEXT NOT NULL,
+                timestamp TEXT NOT NULL,
+                severity TEXT NOT NULL,
+                evidence_screenshot TEXT,
+                status TEXT NOT NULL DEFAULT 'Active',
+                FOREIGN KEY (attempt_id) REFERENCES exam_attempts (id)
+            )
+        ''')
         
         # Seed default users if empty
         cursor.execute("SELECT COUNT(*) FROM users")
         if cursor.fetchone()[0] == 0:
             cursor.execute("INSERT INTO users (name, email, password, role, status) VALUES (?, ?, ?, ?, ?)",
-                           ('Admin User', 'admin@proctor.ai', 'admin123', 'admin', 'approved'))
+                           ('Admin User', 'admin@proctor.ai', 'adminSecure98!_Z', 'admin', 'approved'))
             cursor.execute("INSERT INTO users (name, email, password, role, status) VALUES (?, ?, ?, ?, ?)",
-                           ('Abhishek', 'student@proctor.ai', 'student123', 'student', 'approved'))
+                           ('Abhishek', 'student@proctor.ai', 'studentSecure98!_Z', 'student', 'approved'))
             db.commit()
             
         # Seed default settings if empty
@@ -182,7 +200,11 @@ def index():
             return redirect(url_for('admin_dashboard'))
         else:
             return redirect(url_for('student_dashboard'))
-    return redirect(url_for('login'))
+    return render_template('landing.html')
+
+@app.route('/landing')
+def landing():
+    return render_template('landing.html')
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -770,6 +792,8 @@ def log_alert(exam_id):
         
     alert_type = request.json.get('alert_type')
     description = request.json.get('description')
+    severity = request.json.get('severity')
+    screenshot = request.json.get('screenshot', '')
     
     attempt = get_active_attempt(session['user_id'])
     if not attempt:
@@ -778,16 +802,67 @@ def log_alert(exam_id):
     db = get_db()
     cursor = db.cursor()
     
-    # Insert proctor log
+    # Get candidate name
+    cursor.execute("SELECT name FROM users WHERE id = ?", (session['user_id'],))
+    user_row = cursor.fetchone()
+    candidate_name = user_row['name'] if user_row else 'Student'
+    
+    # Determine severity if not provided
+    if not severity:
+        alert_lower = alert_type.lower()
+        if 'tab' in alert_lower or 'focus' in alert_lower:
+            severity = 'Medium'
+        elif 'minimize' in alert_lower or 'window' in alert_lower:
+            severity = 'High'
+        elif 'mobile' in alert_lower or 'phone' in alert_lower:
+            severity = 'High'
+        elif 'face' in alert_lower and 'not' in alert_lower:
+            severity = 'Medium'
+        elif 'gaze' in alert_lower or 'eye' in alert_lower or 'movement' in alert_lower:
+            severity = 'Low'
+        elif 'multiple' in alert_lower or 'additional' in alert_lower:
+            severity = 'Critical'
+        elif 'monitor' in alert_lower or 'display' in alert_lower:
+            severity = 'Critical'
+        elif 'ai' in alert_lower or 'assistance' in alert_lower:
+            severity = 'Critical'
+        else:
+            severity = 'Medium'
+
+    # Insert proctor log (existing table)
     timestamp_str = datetime.now().strftime("%I:%M:%S %p")
     cursor.execute('''
         INSERT INTO proctor_logs (attempt_id, timestamp, alert_type, description)
         VALUES (?, ?, ?, ?)
     ''', (attempt['id'], timestamp_str, alert_type, description))
     
+    # Insert malpractice notification (new table)
+    cursor.execute('''
+        INSERT INTO malpractice_notifications (attempt_id, candidate_name, exam_name, violation_type, description, timestamp, severity, evidence_screenshot, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Active')
+    ''', (attempt['id'], candidate_name, attempt['exam_name'], alert_type, description, timestamp_str, severity, screenshot))
+    
     # Increment warnings count
     cursor.execute('UPDATE exam_attempts SET warnings_count = warnings_count + 1 WHERE id = ?', (attempt['id'],))
     db.commit()
+    
+    # Get the inserted notification ID to broadcast
+    notification_id = cursor.lastrowid
+    
+    # Broadcast to admin SSE subscribers
+    alert_payload = {
+        "id": notification_id,
+        "attempt_id": attempt['id'],
+        "candidate_name": candidate_name,
+        "exam_name": attempt['exam_name'],
+        "violation_type": alert_type,
+        "description": description,
+        "timestamp": timestamp_str,
+        "severity": severity,
+        "evidence_screenshot": screenshot,
+        "status": "Active"
+    }
+    broadcast_notification(alert_payload)
     
     # Reload attempt warnings count
     cursor.execute('SELECT warnings_count FROM exam_attempts WHERE id = ?', (attempt['id'],))
@@ -879,6 +954,139 @@ def review_report(attempt_id):
     cursor.execute("UPDATE exam_attempts SET status = 'reviewed' WHERE id = ?", (attempt_id,))
     db.commit()
     return redirect(url_for('admin_report_details', attempt_id=attempt_id))
+
+# Real-Time Malpractice Notifications System
+notification_subscribers = []
+
+def broadcast_notification(data):
+    for q in list(notification_subscribers):
+        try:
+            q.put(data)
+        except Exception:
+            pass
+
+@app.route('/admin/notifications/stream')
+def admin_notifications_stream():
+    if session.get('role') != 'admin':
+        return jsonify({"error": "Unauthorized"}), 401
+
+    def event_stream():
+        q = queue.Queue()
+        notification_subscribers.append(q)
+        try:
+            while True:
+                try:
+                    data = q.get(timeout=20)
+                    yield f"data: {json.dumps(data)}\n\n"
+                except queue.Empty:
+                    yield ": keep-alive\n\n"
+        except GeneratorExit:
+            if q in notification_subscribers:
+                notification_subscribers.remove(q)
+    
+    return Response(event_stream(), mimetype="text/event-stream")
+
+@app.route('/admin/notifications')
+def admin_notifications():
+    if session.get('role') != 'admin':
+        return redirect(url_for('login'))
+    return render_template('admin_notifications.html')
+
+@app.route('/admin/notifications/data')
+def admin_notifications_data():
+    if session.get('role') != 'admin':
+        return jsonify({"error": "Unauthorized"}), 401
+        
+    candidate = request.args.get('candidate', '').strip()
+    exam = request.args.get('exam', '').strip()
+    severity = request.args.get('severity', '').strip()
+    status = request.args.get('status', '').strip()
+    
+    db = get_db()
+    cursor = db.cursor()
+    
+    query = "SELECT * FROM malpractice_notifications WHERE 1=1"
+    params = []
+    
+    if candidate:
+        query += " AND candidate_name LIKE ?"
+        params.append(f"%{candidate}%")
+    if exam:
+        query += " AND exam_name LIKE ?"
+        params.append(f"%{exam}%")
+    if severity:
+        query += " AND severity = ?"
+        params.append(severity)
+    if status:
+        query += " AND status = ?"
+        params.append(status)
+        
+    query += " ORDER BY id DESC"
+    cursor.execute(query, params)
+    rows = cursor.fetchall()
+    
+    alerts = []
+    for r in rows:
+        alerts.append({
+            "id": r['id'],
+            "attempt_id": r['attempt_id'],
+            "candidate_name": r['candidate_name'],
+            "exam_name": r['exam_name'],
+            "violation_type": r['violation_type'],
+            "description": r['description'],
+            "timestamp": r['timestamp'],
+            "severity": r['severity'],
+            "evidence_screenshot": r['evidence_screenshot'],
+            "status": r['status']
+        })
+        
+    # Get active/unread count
+    cursor.execute("SELECT COUNT(*) FROM malpractice_notifications WHERE status = 'Active'")
+    unread_count = cursor.fetchone()[0]
+    
+    return jsonify({"alerts": alerts, "unread_count": unread_count})
+
+@app.route('/admin/notifications/action/<int:alert_id>', methods=['POST'])
+def admin_notifications_action(alert_id):
+    if session.get('role') != 'admin':
+        return jsonify({"error": "Unauthorized"}), 401
+        
+    action = request.json.get('action')
+    db = get_db()
+    cursor = db.cursor()
+    
+    if action == 'mark_reviewed':
+        cursor.execute("UPDATE malpractice_notifications SET status = 'Reviewed' WHERE id = ?", (alert_id,))
+        db.commit()
+    elif action == 'dismiss':
+        cursor.execute("UPDATE malpractice_notifications SET status = 'Dismissed' WHERE id = ?", (alert_id,))
+        db.commit()
+    elif action == 'get_details':
+        cursor.execute("SELECT * FROM malpractice_notifications WHERE id = ?", (alert_id,))
+        r = cursor.fetchone()
+        if r:
+            return jsonify({
+                "status": "success",
+                "alert": {
+                    "id": r['id'],
+                    "attempt_id": r['attempt_id'],
+                    "candidate_name": r['candidate_name'],
+                    "exam_name": r['exam_name'],
+                    "violation_type": r['violation_type'],
+                    "description": r['description'],
+                    "timestamp": r['timestamp'],
+                    "severity": r['severity'],
+                    "evidence_screenshot": r['evidence_screenshot'],
+                    "status": r['status']
+                }
+            })
+        return jsonify({"error": "Alert not found"}), 404
+        
+    # Get new unread count
+    cursor.execute("SELECT COUNT(*) FROM malpractice_notifications WHERE status = 'Active'")
+    unread_count = cursor.fetchone()[0]
+    
+    return jsonify({"status": "success", "unread_count": unread_count})
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5173)

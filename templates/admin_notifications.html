@@ -1,0 +1,439 @@
+{% extends 'base.html' %}
+
+{% block title_header %}Notifications Center{% endblock %}
+
+{% block content %}
+<div class="page-header" style="margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center;">
+    <div>
+        <h1>Malpractice Notifications</h1>
+        <p>Monitor real-time candidate violations, screen capture anomalies, and AI proctoring logs.</p>
+    </div>
+    <div style="display: flex; gap: 8px; align-items: center;">
+        <span class="badge badge-success" style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; font-weight: 700;">
+            <span style="width: 8px; height: 8px; background-color: #10b981; border-radius: 50%; display: inline-block; animation: pulse-badge 1.5s infinite;"></span>
+            Live Monitoring Active
+        </span>
+    </div>
+</div>
+
+<!-- Live Alert Analytics Counters -->
+<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px;">
+    <div class="card" style="margin-bottom: 0; border-left: 4px solid #3b82f6;">
+        <div class="card-body" style="padding: 16px 20px;">
+            <div style="color: var(--text-secondary); font-size: 0.8rem; font-weight: 700; text-transform: uppercase;">Low Severity</div>
+            <div style="font-size: 1.8rem; font-weight: 700; color: #1e3a8a; margin-top: 4px;" id="count-low">0</div>
+        </div>
+    </div>
+    <div class="card" style="margin-bottom: 0; border-left: 4px solid #f97316;">
+        <div class="card-body" style="padding: 16px 20px;">
+            <div style="color: var(--text-secondary); font-size: 0.8rem; font-weight: 700; text-transform: uppercase;">Medium Severity</div>
+            <div style="font-size: 1.8rem; font-weight: 700; color: #7c2d12; margin-top: 4px;" id="count-medium">0</div>
+        </div>
+    </div>
+    <div class="card" style="margin-bottom: 0; border-left: 4px solid #ef4444;">
+        <div class="card-body" style="padding: 16px 20px;">
+            <div style="color: var(--text-secondary); font-size: 0.8rem; font-weight: 700; text-transform: uppercase;">High Severity</div>
+            <div style="font-size: 1.8rem; font-weight: 700; color: #7f1d1d; margin-top: 4px;" id="count-high">0</div>
+        </div>
+    </div>
+    <div class="card" style="margin-bottom: 0; border-left: 4px solid #991b1b;">
+        <div class="card-body" style="padding: 16px 20px;">
+            <div style="color: var(--text-secondary); font-size: 0.8rem; font-weight: 700; text-transform: uppercase;">Critical Severity</div>
+            <div style="font-size: 1.8rem; font-weight: 700; color: #500724; margin-top: 4px;" id="count-critical">0</div>
+        </div>
+    </div>
+</div>
+
+<!-- Filters Panel -->
+<div class="card" style="margin-bottom: 24px;">
+    <div class="card-body" style="padding: 20px 24px;">
+        <form id="filter-form" style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end;">
+            <div style="flex: 1; min-width: 180px;">
+                <label style="display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 6px; color: var(--text-secondary);">Candidate Name</label>
+                <input type="text" id="filter-candidate" placeholder="Search candidate..." class="form-control" style="width: 100%;">
+            </div>
+            <div style="flex: 1; min-width: 180px;">
+                <label style="display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 6px; color: var(--text-secondary);">Exam Name</label>
+                <input type="text" id="filter-exam" placeholder="Search exam..." class="form-control" style="width: 100%;">
+            </div>
+            <div style="width: 150px;">
+                <label style="display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 6px; color: var(--text-secondary);">Severity</label>
+                <select id="filter-severity" class="form-control" style="width: 100%;">
+                    <option value="">All Severities</option>
+                    <option value="Low">Low</option>
+                    <option value="Medium">Medium</option>
+                    <option value="High">High</option>
+                    <option value="Critical">Critical</option>
+                </select>
+            </div>
+            <div style="width: 150px;">
+                <label style="display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 6px; color: var(--text-secondary);">Status</label>
+                <select id="filter-status" class="form-control" style="width: 100%;">
+                    <option value="Active">Active</option>
+                    <option value="Reviewed">Reviewed</option>
+                    <option value="Dismissed">Dismissed</option>
+                    <option value="">All Statuses</option>
+                </select>
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <button type="button" class="btn btn-primary" onclick="loadAlerts()">Apply</button>
+                <button type="button" class="btn btn-secondary" onclick="resetFilters()">Reset</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Alerts Panel -->
+<div class="card">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 class="card-title" id="alerts-panel-title">Active Violations (0)</h3>
+        <span style="font-size: 0.8rem; color: var(--text-secondary);">New alerts will appear instantly without reloading</span>
+    </div>
+    <div class="card-body" style="padding: 0;">
+        <div id="no-alerts-placeholder" style="text-align: center; padding: 48px 24px; display: none;">
+            <i class="fa-solid fa-bell-slash" style="font-size: 3rem; color: #cbd5e1; margin-bottom: 16px;"></i>
+            <h4>No Malpractice Alerts Found</h4>
+            <p style="color: var(--text-secondary); max-width: 400px; margin: 8px auto 0;">No matching violations are currently logged in the system.</p>
+        </div>
+        
+        <div class="table-responsive" id="alerts-table-wrapper">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Candidate</th>
+                        <th>Exam</th>
+                        <th>Violation Type</th>
+                        <th>Severity</th>
+                        <th>Logged At</th>
+                        <th>Status</th>
+                        <th style="text-align: right;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="alerts-list">
+                    <!-- Dynamic Alert Rows -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Evidence Inspection Modal -->
+<div class="warning-overlay" id="evidence-modal" style="display: none;">
+    <div class="warning-dialog" style="max-width: 700px; text-align: left;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 16px; margin-bottom: 16px;">
+            <h3 style="font-weight: 700; margin: 0; color: #0f172a; display: flex; align-items: center; gap: 8px;" id="modal-title">
+                <i class="fa-solid fa-triangle-exclamation text-danger"></i> Malpractice Details
+            </h3>
+            <button onclick="closeEvidenceModal()" style="background: none; border: none; font-size: 1.25rem; cursor: pointer; color: var(--text-secondary);"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 20px;">
+            <!-- Screenshot Preview Area -->
+            <div>
+                <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 6px; text-transform: uppercase;">Webcam Snapshot (Evidence)</div>
+                <div id="modal-screenshot-container" style="background-color: #f8fafc; border: 1px solid var(--border-color); border-radius: 6px; height: 260px; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative;">
+                    <img id="modal-screenshot" src="" alt="Webcam Snapshot" style="width: 100%; height: 100%; object-fit: cover; display: none;">
+                    <div id="modal-no-screenshot" style="text-align: center; color: var(--text-secondary); padding: 24px;">
+                        <i class="fa-solid fa-camera-slash" style="font-size: 2.5rem; margin-bottom: 8px; color: #cbd5e1;"></i>
+                        <p style="font-size: 0.85rem;">No webcam frame captured for this event.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Information List -->
+            <div style="display: flex; flex-direction: column; justify-content: space-between;">
+                <div style="font-size: 0.85rem; line-height: 1.6;">
+                    <div style="margin-bottom: 8px;">
+                        <strong style="color: var(--text-secondary);">Candidate:</strong>
+                        <div id="modal-candidate" style="font-weight: 700; color: #0f172a;">-</div>
+                    </div>
+                    <div style="margin-bottom: 8px;">
+                        <strong style="color: var(--text-secondary);">Exam:</strong>
+                        <div id="modal-exam" style="font-weight: 700; color: #0f172a;">-</div>
+                    </div>
+                    <div style="margin-bottom: 8px;">
+                        <strong style="color: var(--text-secondary);">Violation Type:</strong>
+                        <div id="modal-violation" style="font-weight: 700; color: #0f172a;">-</div>
+                    </div>
+                    <div style="margin-bottom: 8px;">
+                        <strong style="color: var(--text-secondary);">Logged At:</strong>
+                        <div id="modal-time" style="color: #0f172a;">-</div>
+                    </div>
+                    <div style="margin-bottom: 8px;">
+                        <strong style="color: var(--text-secondary);">Severity:</strong>
+                        <div><span id="modal-severity" class="severity-badge severity-medium">-</span></div>
+                    </div>
+                </div>
+                
+                <div style="border-top: 1px solid var(--border-color); padding-top: 16px; display: flex; flex-direction: column; gap: 8px;">
+                    <button class="btn btn-primary" id="modal-btn-review" style="width: 100%; padding: 8px;" onclick="">Mark Reviewed</button>
+                    <button class="btn btn-secondary" id="modal-btn-dismiss" style="width: 100%; padding: 8px;" onclick="">Dismiss Alert</button>
+                </div>
+            </div>
+        </div>
+        
+        <div style="margin-top: 16px; padding: 12px; background-color: #f8fafc; border: 1px solid var(--border-color); border-radius: 6px; font-size: 0.85rem;">
+            <strong style="color: #0f172a; display: block; margin-bottom: 4px;">Incident Description</strong>
+            <span id="modal-desc" style="color: var(--text-secondary); line-height: 1.4;">-</span>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let activeAlerts = [];
+    
+    // Load initial alerts from the API
+    function loadAlerts() {
+        const candidate = document.getElementById('filter-candidate').value;
+        const exam = document.getElementById('filter-exam').value;
+        const severity = document.getElementById('filter-severity').value;
+        const status = document.getElementById('filter-status').value;
+        
+        const url = `/admin/notifications/data?candidate=${encodeURIComponent(candidate)}&exam=${encodeURIComponent(exam)}&severity=${severity}&status=${status}`;
+        
+        fetch(url)
+            .then(res => res.json())
+            .then(data => {
+                activeAlerts = data.alerts;
+                renderAlertsTable();
+                updateAnalyticsCounters(data.alerts);
+            })
+            .catch(err => console.error("Error loading notifications:", err));
+    }
+    
+    function resetFilters() {
+        document.getElementById('filter-form').reset();
+        loadAlerts();
+    }
+    
+    function renderAlertsTable() {
+        const tbody = document.getElementById('alerts-list');
+        const placeholder = document.getElementById('no-alerts-placeholder');
+        const wrapper = document.getElementById('alerts-table-wrapper');
+        const panelTitle = document.getElementById('alerts-panel-title');
+        
+        tbody.innerHTML = '';
+        panelTitle.innerText = `Logged Violations (${activeAlerts.length})`;
+        
+        if (activeAlerts.length === 0) {
+            placeholder.style.display = 'block';
+            wrapper.style.display = 'none';
+            return;
+        }
+        
+        placeholder.style.display = 'none';
+        wrapper.style.display = 'block';
+        
+        activeAlerts.forEach(alert => {
+            const tr = document.createElement('tr');
+            tr.id = `alert-row-${alert.id}`;
+            tr.style.transition = 'background-color 0.3s';
+            
+            // Check status class
+            let statusBadge = `<span class="badge badge-success" style="background-color:#d1fae5; color:#059669; border: 1px solid #a7f3d0;">Active</span>`;
+            if (alert.status === 'Reviewed') {
+                statusBadge = `<span class="badge badge-secondary" style="background-color:#f1f5f9; color:#475569; border: 1px solid #cbd5e1;">Reviewed</span>`;
+            } else if (alert.status === 'Dismissed') {
+                statusBadge = `<span class="badge badge-secondary" style="background-color:#f8fafc; color:#94a3b8; border: 1px solid #e2e8f0; opacity:0.75;">Dismissed</span>`;
+            }
+            
+            tr.innerHTML = `
+                <td><strong>${alert.candidate_name}</strong></td>
+                <td>${alert.exam_name}</td>
+                <td><i class="fa-solid fa-triangle-exclamation text-warning" style="margin-right: 6px;"></i> ${alert.violation_type}</td>
+                <td><span class="severity-badge severity-${alert.severity.toLowerCase()}">${alert.severity}</span></td>
+                <td>${alert.timestamp}</td>
+                <td>${statusBadge}</td>
+                <td style="text-align: right; white-space: nowrap;">
+                    <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 0.75rem; height: auto;" onclick="viewEvidence(${alert.id})">
+                        <i class="fa-solid fa-eye"></i> View Evidence
+                    </button>
+                    <button class="btn btn-primary" style="padding: 4px 8px; font-size: 0.75rem; height: auto;" onclick="markReviewed(${alert.id})">
+                        <i class="fa-solid fa-check"></i>
+                    </button>
+                    <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 0.75rem; height: auto; color:#b91c1c;" onclick="dismissAlert(${alert.id})">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                    <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 0.75rem; height: auto; color:var(--primary);" onclick="exportAlert(${alert.id})" title="Export JSON">
+                        <i class="fa-solid fa-file-export"></i>
+                    </button>
+                </td>
+            `;
+            
+            tbody.appendChild(tr);
+        });
+    }
+    
+    function updateAnalyticsCounters(alerts) {
+        // If we are filtering, we count the current loaded ones. Let's fetch the absolute numbers or count loaded ones.
+        // For visual feedback, counting loaded is great! But let's count matching list.
+        let low = 0, medium = 0, high = 0, critical = 0;
+        alerts.forEach(a => {
+            if (a.severity === 'Low') low++;
+            else if (a.severity === 'Medium') medium++;
+            else if (a.severity === 'High') high++;
+            else if (a.severity === 'Critical') critical++;
+        });
+        
+        document.getElementById('count-low').innerText = low;
+        document.getElementById('count-medium').innerText = medium;
+        document.getElementById('count-high').innerText = high;
+        document.getElementById('count-critical').innerText = critical;
+    }
+    
+    // Alert Actions
+    function viewEvidence(alertId) {
+        fetch(`/admin/notifications/action/${alertId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'get_details' })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.alert) {
+                const alert = data.alert;
+                document.getElementById('modal-candidate').innerText = alert.candidate_name;
+                document.getElementById('modal-exam').innerText = alert.exam_name;
+                document.getElementById('modal-violation').innerText = alert.violation_type;
+                document.getElementById('modal-time').innerText = alert.timestamp;
+                document.getElementById('modal-desc').innerText = alert.description;
+                
+                const sevBadge = document.getElementById('modal-severity');
+                sevBadge.innerText = alert.severity;
+                sevBadge.className = `severity-badge severity-${alert.severity.toLowerCase()}`;
+                
+                const img = document.getElementById('modal-screenshot');
+                const noImg = document.getElementById('modal-no-screenshot');
+                if (alert.evidence_screenshot) {
+                    img.src = alert.evidence_screenshot;
+                    img.style.display = 'block';
+                    noImg.style.display = 'none';
+                } else {
+                    img.src = '';
+                    img.style.display = 'none';
+                    noImg.style.display = 'block';
+                }
+                
+                // Bind buttons
+                document.getElementById('modal-btn-review').onclick = () => { markReviewed(alert.id); closeEvidenceModal(); };
+                document.getElementById('modal-btn-dismiss').onclick = () => { dismissAlert(alert.id); closeEvidenceModal(); };
+                
+                // Open modal
+                document.getElementById('evidence-modal').style.display = 'flex';
+            }
+        })
+        .catch(err => console.error("Error loading alert details:", err));
+    }
+    
+    function closeEvidenceModal() {
+        document.getElementById('evidence-modal').style.display = 'none';
+    }
+    
+    function markReviewed(alertId) {
+        fetch(`/admin/notifications/action/${alertId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'mark_reviewed' })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                // Flash row color green then reload/update status badge
+                const row = document.getElementById(`alert-row-${alertId}`);
+                if (row) {
+                    row.style.backgroundColor = '#f0fdf4';
+                    setTimeout(() => {
+                        loadAlerts();
+                    }, 500);
+                } else {
+                    loadAlerts();
+                }
+                updateNotificationBadgeCount(data.unread_count);
+            }
+        })
+        .catch(err => console.error("Error executing action:", err));
+    }
+    
+    function dismissAlert(alertId) {
+        if (!confirm('Are you sure you want to dismiss this alert?')) return;
+        
+        fetch(`/admin/notifications/action/${alertId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'dismiss' })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                const row = document.getElementById(`alert-row-${alertId}`);
+                if (row) {
+                    row.style.transform = 'translateX(20px)';
+                    row.style.opacity = '0';
+                    setTimeout(() => {
+                        loadAlerts();
+                    }, 250);
+                } else {
+                    loadAlerts();
+                }
+                updateNotificationBadgeCount(data.unread_count);
+            }
+        })
+        .catch(err => console.error("Error executing action:", err));
+    }
+    
+    function exportAlert(alertId) {
+        const alert = activeAlerts.find(a => a.id === alertId);
+        if (!alert) return;
+        
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(alert, null, 2));
+        const dlAnchor = document.createElement('a');
+        dlAnchor.setAttribute("href",     dataStr);
+        dlAnchor.setAttribute("download", `malpractice_alert_${alertId}.json`);
+        document.body.appendChild(dlAnchor);
+        dlAnchor.click();
+        dlAnchor.remove();
+    }
+    
+    // Page load listener
+    document.addEventListener('DOMContentLoaded', () => {
+        loadAlerts();
+        
+        // Connect to custom DOM event triggered by SSE in main.js
+        window.addEventListener('malpractice-alert', (e) => {
+            const newAlert = e.detail.alert;
+            const currentFilterStatus = document.getElementById('filter-status').value;
+            
+            // Check if incoming alert matches current filter
+            let match = true;
+            
+            const candidateFilter = document.getElementById('filter-candidate').value.toLowerCase();
+            const examFilter = document.getElementById('filter-exam').value.toLowerCase();
+            const severityFilter = document.getElementById('filter-severity').value;
+            
+            if (candidateFilter && !newAlert.candidate_name.toLowerCase().includes(candidateFilter)) match = false;
+            if (examFilter && !newAlert.exam_name.toLowerCase().includes(examFilter)) match = false;
+            if (severityFilter && newAlert.severity !== severityFilter) match = false;
+            if (currentFilterStatus && newAlert.status !== currentFilterStatus) match = false;
+            
+            if (match) {
+                // Prepend to top of list
+                activeAlerts.unshift(newAlert);
+                renderAlertsTable();
+                
+                // Highlight the new row
+                const row = document.getElementById(`alert-row-${newAlert.id}`);
+                if (row) {
+                    row.style.backgroundColor = '#fef2f2'; // light red highlight
+                    setTimeout(() => {
+                        row.style.backgroundColor = 'transparent';
+                    }, 3000);
+                }
+                
+                updateAnalyticsCounters(activeAlerts);
+            }
+        });
+    });
+</script>
+{% endblock %}

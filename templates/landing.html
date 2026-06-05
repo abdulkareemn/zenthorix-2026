@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ProctorAI - Secure Online Examination & Intelligent AI Proctoring</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body class="landing-page">
+
+    <!-- 1. HEADER / NAVIGATION BAR -->
+    <header class="landing-header" id="landing-header">
+        <div class="container nav-container">
+            <a href="#" class="nav-logo-box">
+                <img src="{{ url_for('static', filename='zenthorix-logo.png') }}?v=4" alt="Zenthorix Logo"
+                    class="nav-logo-img">
+            </a>
+
+            <ul class="nav-menu-list" id="nav-menu">
+                <li class="nav-menu-item"><a href="#" class="nav-menu-link">Home</a></li>
+                <li class="nav-menu-item"><a href="#features" class="nav-menu-link">Features</a></li>
+                <li class="nav-menu-item"><a href="#security" class="nav-menu-link">Security</a></li>
+                <li class="nav-menu-item"><a href="#how-it-works" class="nav-menu-link">How It Works</a></li>
+                <li class="nav-menu-item"><a href="#faq" class="nav-menu-link">FAQ</a></li>
+            </ul>
+
+            <div class="nav-right-actions">
+                <a href="{{ url_for('login') }}" class="nav-signin-link">Sign In</a>
+                <a href="{{ url_for('login') }}?tab=register" class="btn-l btn-l-primary">Get Started</a>
+                <div class="mobile-menu-toggle" id="mobile-toggle">
+                    <i class="fa-solid fa-bars"></i>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- 2. HERO SECTION -->
+    <section class="hero-section">
+        <!-- Abstract gradient glows -->
+        <div class="hero-bg-glows">
+            <div class="hero-glow hero-glow-1"></div>
+            <div class="hero-glow hero-glow-2"></div>
+        </div>
+
+        <div class="container hero-content-center">
+            <div class="hero-badge fade-in">
+                <span>AI-Powered Online Examination Platform</span>
+            </div>
+            <h1 class="hero-title fade-in">Secure Online Exams with <br><span class="gradient-text">Intelligent AI
+                    Proctoring</span></h1>
+            <p class="hero-desc fade-in">Conduct secure remote examinations with advanced AI monitoring, identity
+                verification, and real-time proctoring designed for institutions and certification bodies.</p>
+
+            <div class="hero-ctas fade-in">
+                <a href="#features" class="btn-l btn-l-primary">Explore Platform</a>
+            </div>
+
+            <!-- Trust Indicator -->
+            <div class="hero-trust-indicator fade-in">
+                <div class="stars-row">
+                    <i class="fa-solid fa-star"></i>
+                    <i class="fa-solid fa-star"></i>
+                    <i class="fa-solid fa-star"></i>
+                    <i class="fa-solid fa-star"></i>
+                    <i class="fa-solid fa-star"></i>
+                </div>
+                <p class="trust-text">Trusted by institutions, universities, and certification bodies.</p>
+            </div>
+        </div>
+
+        <!-- Scroll indicator -->
+        <a href="#features" class="hero-scroll-indicator fade-in">
+            <span>Scroll to Explore</span>
+            <i class="fa-solid fa-chevron-down"></i>
+        </a>
+    </section>
+
+
+
+    <!-- 4. FEATURES SECTION -->
+    <section class="section-padding bg-light" id="features">
+        <div class="container">
+            <div class="section-header text-center reveal">
+                <h2>Everything Needed for Secure Examinations</h2>
+                <p>Advanced features designed to maintain exam integrity without compromising candidate comfort.</p>
+            </div>
+
+            <div class="features-grid">
+                <!-- Card 1 -->
+                <div class="feature-card reveal">
+                    <div class="feature-icon-wrapper"><i class="fa-solid fa-user-check"></i></div>
+                    <h3>AI Face Verification</h3>
+                    <p>Continuously validates candidates against government IDs to confirm identity and prevent
+                        impersonation.</p>
+                </div>
+                <!-- Card 2 -->
+                <div class="feature-card reveal">
+                    <div class="feature-icon-wrapper"><i class="fa-solid fa-video"></i></div>
+                    <h3>Live Proctoring</h3>
+                    <p>Synchronous remote proctor viewports with instant notifications of anomalies and security events.
+                    </p>
+                </div>
+                <!-- Card 3 -->
+                <div class="feature-card reveal">
+                    <div class="feature-icon-wrapper"><i class="fa-solid fa-eye"></i></div>
+                    <h3>Eye Movement Tracking</h3>
+                    <p>Flags repetitive eye movements away from the testing viewport using intelligent visual modeling.
+                    </p>
+                </div>
+                <!-- Card 4 -->
+                <div class="feature-card reveal">
+                    <div class="feature-icon-wrapper"><i class="fa-solid fa-desktop"></i></div>
+                    <h3>Screen Monitoring</h3>
+                    <p>Records candidate desktop displays and locks external monitors to prevent cheating.</p>
+                </div>
+                <!-- Card 5 -->
+                <div class="feature-card reveal">
+                    <div class="feature-icon-wrapper"><i class="fa-solid fa-ban"></i></div>
+                    <h3>Browser Lockdown</h3>
+                    <p>Enforces full-screen lockdown. Disables copy-paste, printing, external tabs, and screen share.
+                    </p>
+                </div>
+                <!-- Card 6 -->
+                <div class="feature-card reveal">
+                    <div class="feature-icon-wrapper"><i class="fa-solid fa-magnifying-glass-chart"></i></div>
+                    <h3>Fraud Detection</h3>
+                    <p>Filters background voices, secondary hardware signatures, and other environmental indicators.</p>
+                </div>
+                <!-- Card 7 -->
+                <div class="feature-card reveal">
+                    <div class="feature-icon-wrapper"><i class="fa-solid fa-bell"></i></div>
+                    <h3>Instant Alerts</h3>
+                    <p>Alerts candidate and proctor immediately upon detection of non-compliance event guidelines.</p>
+                </div>
+                <!-- Card 8 -->
+                <div class="feature-card reveal">
+                    <div class="feature-icon-wrapper"><i class="fa-solid fa-chart-line"></i></div>
+                    <h3>Analytics Dashboard</h3>
+                    <p>Detailed reports compiling integrity indices, exam attempts, logs, and video playbacks.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 5. HOW IT WORKS SECTION -->
+    <section class="section-padding" id="how-it-works">
+        <div class="container">
+            <div class="section-header text-center reveal">
+                <h2>Simple &amp; Secure Examination Process</h2>
+                <p>A seamless, step-by-step workflow designed for rapid candidate setup and strict proctoring
+                    compliance.</p>
+            </div>
+
+            <div class="how-it-works-timeline">
+                <div class="timeline-connector"></div>
+
+                <!-- Step 1 -->
+                <div class="timeline-step-card reveal">
+                    <div class="timeline-step-num">1</div>
+                    <h3>Registration</h3>
+                    <p>Candidates log in and enroll into assigned exam slots securely.</p>
+                </div>
+                <!-- Step 2 -->
+                <div class="timeline-step-num-box timeline-step-card reveal">
+                    <div class="timeline-step-num">2</div>
+                    <h3>Verification</h3>
+                    <p>Pre-exam face scanning and webcam alignment verification checks.</p>
+                </div>
+                <!-- Step 3 -->
+                <div class="timeline-step-card reveal">
+                    <div class="timeline-step-num">3</div>
+                    <h3>Exam Launch</h3>
+                    <p>Browser lockdown triggers and locks full-screen examination workspace.</p>
+                </div>
+                <!-- Step 4 -->
+                <div class="timeline-step-card reveal">
+                    <div class="timeline-step-num">4</div>
+                    <h3>AI Monitoring</h3>
+                    <p>Continuous intelligent background monitoring of audio, video, and keys.</p>
+                </div>
+                <!-- Step 5 -->
+                <div class="timeline-step-card reveal">
+                    <div class="timeline-step-num">5</div>
+                    <h3>Analytics</h3>
+                    <p>Instant scorecard processing and proctor integrity reports generation.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 6. SECURITY SECTION -->
+    <section class="section-padding bg-lavender" id="security">
+        <div class="container security-grid">
+
+            <!-- Left Side: SVG Security Graphic illustration -->
+            <div class="security-illustration-box reveal">
+                <div class="security-badge-illustration">
+                    <i class="fa-solid fa-shield-halved security-badge-shield"></i>
+                    <h3 style="font-weight: 800; font-size: 1.4rem; color: var(--text-dark);">256-Bit Encrypted</h3>
+                    <p
+                        style="font-size: 0.82rem; color: var(--text-gray); font-weight: 500; text-align: center; max-width: 240px;">
+                        End-to-End Exam Workspace Security Protection</p>
+                    <svg width="200" height="40" style="margin-top: 10px;">
+                        <line x1="10" y1="20" x2="190" y2="20" stroke="#E5E7EB" stroke-width="2"
+                            stroke-dasharray="5, 5" />
+                        <circle cx="50" cy="20" r="5" fill="#6D5DFC" />
+                        <circle cx="100" cy="20" r="5" fill="#8B7EFF" />
+                        <circle cx="150" cy="20" r="5" fill="#10b981" />
+                    </svg>
+                </div>
+            </div>
+
+            <!-- Right Side: Security Details -->
+            <div class="security-features-content">
+                <div class="section-header reveal" style="margin-left: 0; margin-bottom: 32px;">
+                    <h2>Built with Security at Every Layer</h2>
+                    <p>ProctorAI safeguards student privacy while maintaining strict anti-cheating protocols at
+                        institutional scales.</p>
+                </div>
+
+                <div class="security-features-grid">
+                    <div class="security-card reveal">
+                        <h3><i class="fa-solid fa-id-card"></i> Identity Verification</h3>
+                        <p>Real-time biometric cross-referencing to block proxy test-takers.</p>
+                    </div>
+                    <div class="security-card reveal">
+                        <h3><i class="fa-solid fa-eye-low-vision"></i> Facial Recognition</h3>
+                        <p>Continuous verification matching checking if candidate leaves viewport.</p>
+                    </div>
+                    <div class="security-card reveal">
+                        <h3><i class="fa-solid fa-lock"></i> Browser Security</h3>
+                        <p>Advanced lockdown prevents screen sharing, VM operations, and tab changes.</p>
+                    </div>
+                    <div class="security-card reveal">
+                        <h3><i class="fa-solid fa-desktop"></i> Screen Monitoring</h3>
+                        <p>Detects additional monitor attachments and unauthorized screen extensions.</p>
+                    </div>
+                    <div class="security-card reveal">
+                        <h3><i class="fa-solid fa-key"></i> Encrypted Data</h3>
+                        <p>Fully compliant AES-256 database protection for audit files and scores.</p>
+                    </div>
+                    <div class="security-card reveal">
+                        <h3><i class="fa-solid fa-user-shield"></i> Privacy Protection</h3>
+                        <p>Strict data retention guidelines and full GDPR compliance standards.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 7. PLATFORM PREVIEW SECTION -->
+    <section class="section-padding bg-light" id="previews">
+        <div class="container">
+            <div class="section-header text-center reveal">
+                <h2>Explore the ProctorAI Platform</h2>
+                <p>Intuitive and powerful portals custom-built for administrators, proctors, and candidates.</p>
+            </div>
+
+            <!-- Interactive selector tabs -->
+            <div class="preview-tabs-row reveal">
+                <button class="preview-tab-btn active" onclick="switchPreview('candidate', this)">Candidate
+                    Portal</button>
+                <button class="preview-tab-btn" onclick="switchPreview('proctor', this)">Proctor Dashboard</button>
+                <button class="preview-tab-btn" onclick="switchPreview('admin', this)">Admin Dashboard</button>
+                <button class="preview-tab-btn" onclick="switchPreview('analytics', this)">Analytics Dashboard</button>
+            </div>
+
+            <!-- SaaS Mockup window shell -->
+            <div class="preview-mockup-wrapper reveal">
+
+                <!-- Candidate Portal View Mockup -->
+                <div class="preview-pane active" id="pane-candidate">
+                    <div class="preview-top-toolbar">
+                        <div class="preview-window-controls">
+                            <div class="preview-window-control-dot" style="background-color:#ef4444;"></div>
+                            <div class="preview-window-control-dot" style="background-color:#f59e0b;"></div>
+                            <div class="preview-window-control-dot" style="background-color:#10b981;"></div>
+                        </div>
+                        <div style="color:#ffffff; font-size: 0.8rem; font-weight: 500;">Secure Exam Workspace</div>
+                        <div style="width: 50px;"></div>
+                    </div>
+                    <div class="preview-dashboard-body">
+                        <!-- Left instructions panel mockup -->
+                        <div class="preview-dashboard-main">
+                            <div class="preview-stat-card" style="flex-grow: 1;">
+                                <div
+                                    style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom: 12px; margin-bottom: 12px;">
+                                    <h4 style="font-size: 1.1rem; color: var(--text-dark);">CPA Final Assessment</h4>
+                                    <span
+                                        style="background-color:#fee2e2; color:#ef4444; font-size:0.75rem; font-weight:bold; padding:4px 8px; border-radius:4px;"><i
+                                            class="fa-solid fa-clock"></i> 29:45 Remaining</span>
+                                </div>
+                                <p style="font-weight: 600; font-size:0.9rem; margin-bottom: 8px;">Question 1 of 5</p>
+                                <p style="font-size: 0.88rem; margin-bottom: 16px; color:#1f2937;">Write a Java program
+                                    to print "Hello World". Make sure to use the exact public class name as Main.</p>
+
+                                <div
+                                    style="font-family: 'Fira Code', monospace; background-color:#1e1e2e; color:#cdd6f4; padding:16px; border-radius:6px; font-size: 0.8rem; height: 160px;">
+                                    <span style="color:#cba6f7;">public class</span> <span
+                                        style="color:#f9e2af;">Main</span> {<br>
+                                    &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#cba6f7;">public static void</span> <span
+                                        style="color:#89b4fa;">main</span>(<span style="color:#f9e2af;">String</span>[]
+                                    args) {<br>
+                                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#a6e3a1;">//
+                                        Write your code here</span><br>
+                                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span
+                                        style="color:#f9e2af;">System</span>.out.println(<span
+                                        style="color:#a6e3a1;">"Hello World"</span>);<br>
+                                    &nbsp;&nbsp;&nbsp;&nbsp;}<br>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Right video feed preview mockup -->
+                        <div class="preview-dashboard-side">
+                            <div class="preview-stat-card"
+                                style="height: 180px; background-color:#000; border-radius:8px; display:flex; align-items:center; justify-content:center; position:relative; overflow:hidden;">
+                                <div class="webcam-silhouette"
+                                    style="width: 50px; height: 50px; background-color: rgba(255,255,255,0.1); border: 2px solid #fff; color:#fff;">
+                                    <i class="fa-solid fa-user"></i>
+                                </div>
+                                <span
+                                    style="position:absolute; top:8px; right:8px; background-color:#ef4444; color:#fff; font-size:0.6rem; font-weight:bold; padding:2px 6px; border-radius:4px;">REC</span>
+                                <span
+                                    style="position:absolute; bottom:8px; left:8px; color:#10b981; font-size:0.65rem; font-weight:500;"><i
+                                        class="fa-solid fa-circle"></i> AI Verified</span>
+                            </div>
+                            <div class="preview-stat-card">
+                                <div style="font-size:0.7rem; color:#6B7280; text-transform:uppercase;">Lockdown Status
+                                </div>
+                                <div style="font-size:0.85rem; font-weight:bold; color:#10b981; margin-top: 4px;"><i
+                                        class="fa-solid fa-circle-check"></i> System Secure</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Proctor Dashboard View Mockup -->
+                <div class="preview-pane" id="pane-proctor">
+                    <div class="preview-top-toolbar">
+                        <div class="preview-window-controls">
+                            <div class="preview-window-control-dot" style="background-color:#ef4444;"></div>
+                            <div class="preview-window-control-dot" style="background-color:#f59e0b;"></div>
+                            <div class="preview-window-control-dot" style="background-color:#10b981;"></div>
+                        </div>
+                        <div style="color:#ffffff; font-size: 0.8rem; font-weight: 500;">Live Proctor Dashboard</div>
+                        <div style="width: 50px;"></div>
+                    </div>
+                    <div class="preview-dashboard-body">
+                        <!-- Grid of live feeds -->
+                        <div class="preview-dashboard-main">
+                            <div class="preview-grid-3">
+                                <!-- Student 1 -->
+                                <div class="preview-proctor-card">
+                                    <div class="preview-proctor-header">
+                                        <span>Candidate: Abhishek K</span>
+                                        <span style="color:#10b981;"><i class="fa-solid fa-circle"></i> Active</span>
+                                    </div>
+                                    <div class="preview-proctor-feed">
+                                        <i class="fa-solid fa-user" style="font-size:1.8rem; opacity:0.5;"></i>
+                                        <div class="ai-status-badge"
+                                            style="bottom:6px; left:6px; background-color: rgba(16, 185, 129, 0.2); border-color:#10b981; color:#10b981;">
+                                            <span>Secure</span>
+                                        </div>
+                                    </div>
+                                    <div class="preview-proctor-body">Warnings: 0</div>
+                                </div>
+                                <!-- Student 2 -->
+                                <div class="preview-proctor-card" style="border-color:#ef4444;">
+                                    <div class="preview-proctor-header">
+                                        <span>Candidate: Priya R</span>
+                                        <span style="color:#ef4444;"><i class="fa-solid fa-circle"></i> Alert</span>
+                                    </div>
+                                    <div class="preview-proctor-feed">
+                                        <i class="fa-solid fa-user" style="font-size:1.8rem; opacity:0.5;"></i>
+                                        <div class="ai-status-badge"
+                                            style="bottom:6px; left:6px; background-color: rgba(239, 68, 68, 0.2); border-color:#ef4444; color:#ef4444;">
+                                            <span>Multiple Faces</span>
+                                        </div>
+                                    </div>
+                                    <div class="preview-proctor-body" style="color:#ef4444; font-weight:bold;">Warnings:
+                                        2</div>
+                                </div>
+                                <!-- Student 3 -->
+                                <div class="preview-proctor-card">
+                                    <div class="preview-proctor-header">
+                                        <span>Candidate: Rahul S</span>
+                                        <span style="color:#10b981;"><i class="fa-solid fa-circle"></i> Active</span>
+                                    </div>
+                                    <div class="preview-proctor-feed">
+                                        <i class="fa-solid fa-user" style="font-size:1.8rem; opacity:0.5;"></i>
+                                        <div class="ai-status-badge"
+                                            style="bottom:6px; left:6px; background-color: rgba(16, 185, 129, 0.2); border-color:#10b981; color:#10b981;">
+                                            <span>Secure</span>
+                                        </div>
+                                    </div>
+                                    <div class="preview-proctor-body">Warnings: 0</div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Feed Logs side panel -->
+                        <div class="preview-dashboard-side">
+                            <div class="preview-stat-card" style="flex-grow: 1;">
+                                <h4
+                                    style="font-size: 0.85rem; border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 8px;">
+                                    Integrity Log Alerts</h4>
+                                <div style="display:flex; flex-direction:column; gap:10px; font-size:0.75rem;">
+                                    <div style="border-left: 3px solid #ef4444; padding-left: 8px;">
+                                        <div style="font-weight:bold;">Priya R - Multiple Faces</div>
+                                        <div style="color:#6B7280;">07:44:12 PM</div>
+                                    </div>
+                                    <div style="border-left: 3px solid #f59e0b; padding-left: 8px;">
+                                        <div style="font-weight:bold;">Rahul S - Gaze Deviation</div>
+                                        <div style="color:#6B7280;">07:43:08 PM</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Admin Dashboard View Mockup -->
+                <div class="preview-pane" id="pane-admin">
+                    <div class="preview-top-toolbar">
+                        <div class="preview-window-controls">
+                            <div class="preview-window-control-dot" style="background-color:#ef4444;"></div>
+                            <div class="preview-window-control-dot" style="background-color:#f59e0b;"></div>
+                            <div class="preview-window-control-dot" style="background-color:#10b981;"></div>
+                        </div>
+                        <div style="color:#ffffff; font-size: 0.8rem; font-weight: 500;">Admin Dashboard</div>
+                        <div style="width: 50px;"></div>
+                    </div>
+                    <div class="preview-dashboard-body">
+                        <!-- Stats Grid and Lists -->
+                        <div class="preview-dashboard-main">
+                            <div class="preview-grid-3">
+                                <div class="preview-stat-card">
+                                    <div style="font-size:0.65rem; color:#6B7280; text-transform:uppercase;">Active
+                                        Candidates</div>
+                                    <div
+                                        style="font-size:1.4rem; font-weight:bold; color:var(--text-dark); margin-top: 4px;">
+                                        1,248</div>
+                                </div>
+                                <div class="preview-stat-card">
+                                    <div style="font-size:0.65rem; color:#6B7280; text-transform:uppercase;">Scheduled
+                                        Exams</div>
+                                    <div
+                                        style="font-size:1.4rem; font-weight:bold; color:var(--text-dark); margin-top: 4px;">
+                                        12</div>
+                                </div>
+                                <div class="preview-stat-card">
+                                    <div style="font-size:0.65rem; color:#6B7280; text-transform:uppercase;">Pending
+                                        Approvals</div>
+                                    <div style="font-size:1.4rem; font-weight:bold; color:#f59e0b; margin-top: 4px;">18
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Exam lists -->
+                            <div class="preview-stat-card" style="flex-grow: 1;">
+                                <h4
+                                    style="font-size: 0.85rem; border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 12px;">
+                                    Active Assessment Cohorts</h4>
+                                <table
+                                    style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.75rem;">
+                                    <thead>
+                                        <tr style="border-bottom: 1px solid var(--border); color:#6B7280;">
+                                            <th style="padding: 6px 0;">Assessment</th>
+                                            <th>Duration</th>
+                                            <th>Integrity Score</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr style="border-bottom: 1px solid var(--border);">
+                                            <td style="padding: 8px 0; font-weight:bold;">Java Basics</td>
+                                            <td>45 Mins</td>
+                                            <td style="color:#10b981; font-weight:bold;">99.4%</td>
+                                            <td><span
+                                                    style="background-color:#d1fae5; color:#10b981; padding:2px 6px; border-radius:10px; font-size:0.65rem;">Active</span>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td style="padding: 8px 0; font-weight:bold;">CPA Assessment</td>
+                                            <td>30 Mins</td>
+                                            <td style="color:#f59e0b; font-weight:bold;">94.1%</td>
+                                            <td><span
+                                                    style="background-color:#d1fae5; color:#10b981; padding:2px 6px; border-radius:10px; font-size:0.65rem;">Active</span>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="preview-dashboard-side">
+                            <div class="preview-stat-card" style="flex-grow: 1;">
+                                <h4
+                                    style="font-size: 0.85rem; border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 8px;">
+                                    System Settings</h4>
+                                <div
+                                    style="display:flex; flex-direction:column; gap:12px; font-size:0.75rem; color:var(--text-dark);">
+                                    <div style="display:flex; justify-content:space-between;">
+                                        <span>Webcam Enforcement</span>
+                                        <span style="color:#10b981; font-weight:bold;">ENABLED</span>
+                                    </div>
+                                    <div style="display:flex; justify-content:space-between;">
+                                        <span>Audio Monitoring</span>
+                                        <span style="color:#10b981; font-weight:bold;">ENABLED</span>
+                                    </div>
+                                    <div style="display:flex; justify-content:space-between;">
+                                        <span>Max Alert Warnings</span>
+                                        <span style="font-weight:bold;">3 Warnings</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Analytics Dashboard View Mockup -->
+                <div class="preview-pane" id="pane-analytics">
+                    <div class="preview-top-toolbar">
+                        <div class="preview-window-controls">
+                            <div class="preview-window-control-dot" style="background-color:#ef4444;"></div>
+                            <div class="preview-window-control-dot" style="background-color:#f59e0b;"></div>
+                            <div class="preview-window-control-dot" style="background-color:#10b981;"></div>
+                        </div>
+                        <div style="color:#ffffff; font-size: 0.8rem; font-weight: 500;">Integrity Analytics Reports
+                        </div>
+                        <div style="width: 50px;"></div>
+                    </div>
+                    <div class="preview-dashboard-body">
+                        <!-- Graphs -->
+                        <div class="preview-dashboard-main">
+                            <div class="preview-stat-card"
+                                style="flex-grow: 1; display:flex; flex-direction:column; justify-content:space-between;">
+                                <h4
+                                    style="font-size: 0.85rem; border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 8px;">
+                                    Integrity Violations Over Time</h4>
+                                <!-- SVG Bar graph -->
+                                <svg width="100%" height="180" viewBox="0 0 400 180" style="margin-top: 10px;">
+                                    <line x1="30" y1="20" x2="30" y2="150" stroke="#cbd5e1" stroke-width="1" />
+                                    <line x1="30" y1="150" x2="380" y2="150" stroke="#cbd5e1" stroke-width="1" />
+                                    <!-- Bars -->
+                                    <rect x="60" y="70" width="24" height="80" rx="4" fill="#6D5DFC" />
+                                    <rect x="110" y="90" width="24" height="60" rx="4" fill="#6D5DFC" />
+                                    <rect x="160" y="40" width="24" height="110" rx="4" fill="#8B7EFF" />
+                                    <rect x="210" y="110" width="24" height="40" rx="4" fill="#6D5DFC" />
+                                    <rect x="260" y="125" width="24" height="25" rx="4" fill="#10b981" />
+                                    <rect x="310" y="130" width="24" height="20" rx="4" fill="#10b981" />
+
+                                    <text x="60" y="165" font-size="8" fill="#6B7280">Mon</text>
+                                    <text x="110" y="165" font-size="8" fill="#6B7280">Tue</text>
+                                    <text x="160" y="165" font-size="8" fill="#6B7280">Wed</text>
+                                    <text x="210" y="165" font-size="8" fill="#6B7280">Thu</text>
+                                    <text x="260" y="165" font-size="8" fill="#6B7280">Fri</text>
+                                    <text x="310" y="165" font-size="8" fill="#6B7280">Sat</text>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="preview-dashboard-side">
+                            <div class="preview-stat-card">
+                                <div style="font-size:0.65rem; color:#6B7280; text-transform:uppercase;">Overall Exam
+                                    Integrity Index</div>
+                                <div style="font-size:1.85rem; font-weight:bold; color:#10b981; margin-top: 4px;">98.6%
+                                </div>
+                                <div style="font-size:0.75rem; color:#6B7280; margin-top: 4px;">Excellent rating</div>
+                            </div>
+                            <div class="preview-stat-card">
+                                <div style="font-size:0.65rem; color:#6B7280; text-transform:uppercase;">Critical
+                                    Violations</div>
+                                <div style="font-size:1.85rem; font-weight:bold; color:#ef4444; margin-top: 4px;">0.4%
+                                </div>
+                                <div style="font-size:0.75rem; color:#6B7280; margin-top: 4px;">Lowest this month</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- 8. BENEFITS SECTION -->
+    <section class="section-padding">
+        <div class="container">
+            <div class="section-header text-center reveal">
+                <h2>Tailored for Every Assessment Need</h2>
+                <p>Custom security configurations and administrative control tools built for diverse institutional
+                    mandates.</p>
+            </div>
+
+            <div class="benefits-grid">
+                <!-- Card 1 -->
+                <div class="benefit-card reveal">
+                    <span class="benefit-tag">Universities</span>
+                    <h3>High-Stakes Academic Exams</h3>
+                    <p>Conduct end-of-semester course tests and global entrance evaluations at massive scale with
+                        complete security.</p>
+                    <ul class="benefit-list">
+                        <li class="benefit-list-item"><i class="fa-solid fa-circle-check"></i> LMS integrations &amp;
+                            roster syncs</li>
+                        <li class="benefit-list-item"><i class="fa-solid fa-circle-check"></i> Customizable warning
+                            count levels</li>
+                        <li class="benefit-list-item"><i class="fa-solid fa-circle-check"></i> Full video audit
+                            recordings</li>
+                    </ul>
+                </div>
+                <!-- Card 2 -->
+                <div class="benefit-card reveal">
+                    <span class="benefit-tag">Schools</span>
+                    <h3>Remote Term Assessments</h3>
+                    <p>Maintain continuous academic feedback loops through reliable homework assessments and quizzes.
+                    </p>
+                    <ul class="benefit-list">
+                        <li class="benefit-list-item"><i class="fa-solid fa-circle-check"></i> Easy setup for junior
+                            students</li>
+                        <li class="benefit-list-item"><i class="fa-solid fa-circle-check"></i> Basic browser locks and
+                            monitors</li>
+                        <li class="benefit-list-item"><i class="fa-solid fa-circle-check"></i> Instant proctor flags
+                        </li>
+                    </ul>
+                </div>
+                <!-- Card 3 -->
+                <div class="benefit-card reveal">
+                    <span class="benefit-tag">Certifications</span>
+                    <h3>Professional Licensing</h3>
+                    <p>Enforce strict corporate and institutional compliance guidelines for official certification
+                        exams.</p>
+                    <ul class="benefit-list">
+                        <li class="benefit-list-item"><i class="fa-solid fa-circle-check"></i> Constant ID facial
+                            matching</li>
+                        <li class="benefit-list-item"><i class="fa-solid fa-circle-check"></i> Secure screen lockdowns
+                        </li>
+                        <li class="benefit-list-item"><i class="fa-solid fa-circle-check"></i> Detailed compliance
+                            scorecards</li>
+                    </ul>
+                </div>
+                <!-- Card 4 -->
+                <div class="benefit-card reveal">
+                    <span class="benefit-tag">Government</span>
+                    <h3>Competitive Recruitment</h3>
+                    <p>Conduct public sector intake examinations with ironclad security and full accountability logs.
+                    </p>
+                    <ul class="benefit-list">
+                        <li class="benefit-list-item"><i class="fa-solid fa-circle-check"></i> Multi-tier verification
+                            levels</li>
+                        <li class="benefit-list-item"><i class="fa-solid fa-circle-check"></i> Cryptographic exam
+                            shielding</li>
+                        <li class="benefit-list-item"><i class="fa-solid fa-circle-check"></i> High concurrent capacity
+                            scaling</li>
+                    </ul>
+                </div>
+                <!-- Card 5 -->
+                <div class="benefit-card reveal">
+                    <span class="benefit-tag">Recruitment</span>
+                    <h3>Corporate Skill Hiring</h3>
+                    <p>Evaluate coding capability and technical proficiency during early screening recruitment steps.
+                    </p>
+                    <ul class="benefit-list">
+                        <li class="benefit-list-item"><i class="fa-solid fa-circle-check"></i> Integrated coding
+                            sandboxes</li>
+                        <li class="benefit-list-item"><i class="fa-solid fa-circle-check"></i> Plagiarism detection
+                            scanners</li>
+                        <li class="benefit-list-item"><i class="fa-solid fa-circle-check"></i> Quick dashboard review
+                            tables</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+
+
+    <!-- 10. FAQ ACCORDION SECTION -->
+    <section class="section-padding" id="faq">
+        <div class="container">
+            <div class="section-header text-center reveal">
+                <h2>Frequently Asked Questions</h2>
+                <p>Have questions about ProctorAI? Find quick answers to common queries about our system.</p>
+            </div>
+
+            <div class="faq-grid">
+                <!-- FAQ Item 1 -->
+                <div class="faq-item reveal">
+                    <div class="faq-header" onclick="toggleFaq(this)">
+                        <h3>How does AI proctoring work?</h3>
+                        <i class="fa-solid fa-chevron-down faq-icon"></i>
+                    </div>
+                    <div class="faq-content">
+                        <p>ProctorAI uses continuous webcam streams and audio feeds to verify candidate identity, check
+                            gaze direction, detect secondary hardware resources or vocal helpers, and track active
+                            browser actions.</p>
+                    </div>
+                </div>
+                <!-- FAQ Item 2 -->
+                <div class="faq-item reveal">
+                    <div class="faq-header" onclick="toggleFaq(this)">
+                        <h3>Can candidates take exams remotely?</h3>
+                        <i class="fa-solid fa-chevron-down faq-icon"></i>
+                    </div>
+                    <div class="faq-content">
+                        <p>Yes. Candidates can complete exams from any remote location using a simple computer setup
+                            equipped with a functioning webcam, microphone, and stable internet connection.</p>
+                    </div>
+                </div>
+                <!-- FAQ Item 3 -->
+                <div class="faq-item reveal">
+                    <div class="faq-header" onclick="toggleFaq(this)">
+                        <h3>How is cheating detected?</h3>
+                        <i class="fa-solid fa-chevron-down faq-icon"></i>
+                    </div>
+                    <div class="faq-content">
+                        <p>Our background AI models detect anomalies like facial absence, screen-sharing triggers,
+                            tab-switching behaviors, unauthorized program compiles, and vocal spikes. These anomalies
+                            are instantly logged as warnings.</p>
+                    </div>
+                </div>
+                <!-- FAQ Item 4 -->
+                <div class="faq-item reveal">
+                    <div class="faq-header" onclick="toggleFaq(this)">
+                        <h3>Is student data secure?</h3>
+                        <i class="fa-solid fa-chevron-down faq-icon"></i>
+                    </div>
+                    <div class="faq-content">
+                        <p>Yes. All exam logs, identity uploads, and results records are encrypted both in transit and
+                            at rest. Student profiles and records comply strictly with industry standards and GDPR
+                            directives.</p>
+                    </div>
+                </div>
+                <!-- FAQ Item 5 -->
+                <div class="faq-item reveal">
+                    <div class="faq-header" onclick="toggleFaq(this)">
+                        <h3>Can the platform scale for large exams?</h3>
+                        <i class="fa-solid fa-chevron-down faq-icon"></i>
+                    </div>
+                    <div class="faq-content">
+                        <p>Absolutely. ProctorAI runs on scalable cloud infrastructure capable of hosting and monitoring
+                            thousands of concurrent candidates simultaneously without latencies.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 11. CALL TO ACTION SECTION -->
+    <section class="section-padding bg-light" id="contact">
+        <div class="container">
+            <div class="cta-banner-card reveal">
+                <h2>Ready to Conduct Secure Online Examinations?</h2>
+                <p>Empower your institution with intelligent remote assessment technology. Maintain academic honesty at
+                    scale.</p>
+                <div class="cta-banner-actions">
+                    <a href="{{ url_for('login') }}?tab=register" class="btn-l btn-l-white">Start Free Trial</a>
+                    <a href="mailto:sales@proctor.ai" class="btn-l btn-l-outline-white">Contact Sales</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 12. FOOTER SECTION -->
+    <footer class="landing-footer">
+        <div class="container">
+            <div class="footer-grid">
+                <!-- Column 1: Brand -->
+                <div class="footer-brand-col">
+                    <a href="#" class="nav-logo-box" style="margin-bottom: 8px;">
+                        <img src="{{ url_for('static', filename='zenthorix-logo.png') }}?v=4" alt="Zenthorix Logo"
+                            class="nav-logo-img">
+                    </a>
+                    <p class="footer-brand-desc">Enterprise-grade remote exam proctoring powered by intelligent
+                        biometric authentication and secure lockdowns.</p>
+                </div>
+                <!-- Column 2: Platform -->
+                <div class="footer-col">
+                    <h4>Platform</h4>
+                    <ul class="footer-links-list">
+                        <li class="footer-link-item"><a href="{{ url_for('login') }}">Candidate Login</a></li>
+                        <li class="footer-link-item"><a href="{{ url_for('login') }}">Proctor Login</a></li>
+                        <li class="footer-link-item"><a href="{{ url_for('login') }}?tab=register">Request Portal</a>
+                        </li>
+                    </ul>
+                </div>
+                <!-- Column 3: Features -->
+                <div class="footer-col">
+                    <h4>Features</h4>
+                    <ul class="footer-links-list">
+                        <li class="footer-link-item"><a href="#features">Face Matching</a></li>
+                        <li class="footer-link-item"><a href="#features">Live Auditing</a></li>
+                        <li class="footer-link-item"><a href="#features">Browser Shield</a></li>
+                    </ul>
+                </div>
+                <!-- Column 4: Resources -->
+                <div class="footer-col">
+                    <h4>Resources</h4>
+                    <ul class="footer-links-list">
+                        <li class="footer-link-item"><a href="#">Institution Guide</a></li>
+                        <li class="footer-link-item"><a href="#">Help Center</a></li>
+                        <li class="footer-link-item"><a href="#">FAQ Guide</a></li>
+                    </ul>
+                </div>
+                <!-- Column 5: Support -->
+                <div class="footer-col">
+                    <h4>Support</h4>
+                    <ul class="footer-links-list">
+                        <li class="footer-link-item"><a href="mailto:support@proctor.ai">Help Desk</a></li>
+                        <li class="footer-link-item"><a href="#">Uptime Status</a></li>
+                        <li class="footer-link-item"><a href="#">API docs</a></li>
+                    </ul>
+                </div>
+                <!-- Column 6: Legal -->
+                <div class="footer-col">
+                    <h4>Legal</h4>
+                    <ul class="footer-links-list">
+                        <li class="footer-link-item"><a href="#">Privacy Policy</a></li>
+                        <li class="footer-link-item"><a href="#">Terms &amp; Conditions</a></li>
+                        <li class="footer-link-item"><a href="#">Data Compliance</a></li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Footer Bottom -->
+            <div class="footer-bottom">
+                <p>&copy; 2026 ProctorAI Platform. All rights reserved. Data Privacy Compliant.</p>
+                <div class="footer-social-row">
+                    <a href="#" class="footer-social-icon"><i class="fa-brands fa-twitter"></i></a>
+                    <a href="#" class="footer-social-icon"><i class="fa-brands fa-linkedin"></i></a>
+                    <a href="#" class="footer-social-icon"><i class="fa-brands fa-github"></i></a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts for Micro Interactions & Animations -->
+    <script>
+        // 1. Sticky Navigation Scroll Class Toggle
+        window.addEventListener('scroll', function () {
+            const header = document.getElementById('landing-header');
+            if (window.scrollY > 50) {
+                header.classList.add('scrolled');
+            } else {
+                header.classList.remove('scrolled');
+            }
+        });
+
+        // 2. Interactive Preview Switcher Tabs
+        function switchPreview(type, btn) {
+            // Remove active buttons
+            const buttons = document.querySelectorAll('.preview-tab-btn');
+            buttons.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            // Hide all preview panes
+            const panes = document.querySelectorAll('.preview-pane');
+            panes.forEach(p => p.classList.remove('active'));
+
+            // Show active pane
+            const activePane = document.getElementById('pane-' + type);
+            if (activePane) {
+                activePane.classList.add('active');
+            }
+        }
+
+        // 3. FAQ Accordion Expanding
+        function toggleFaq(header) {
+            const item = header.parentElement;
+            const isActive = item.classList.contains('active');
+
+            // Close all items
+            const allItems = document.querySelectorAll('.faq-item');
+            allItems.forEach(i => {
+                i.classList.remove('active');
+                i.querySelector('.faq-content').style.maxHeight = null;
+            });
+
+            // If it wasn't active, open it
+            if (!isActive) {
+                item.classList.add('active');
+                const content = item.querySelector('.faq-content');
+                content.style.maxHeight = content.scrollHeight + "px";
+            }
+        }
+
+
+
+        // 5. Scroll Reveal Intersection Observer
+        const revealElements = document.querySelectorAll('.reveal');
+        const observer = new IntersectionObserver((entries, obs) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                    obs.unobserve(entry.target);
+                }
+            });
+        }, {
+            threshold: 0.1
+        });
+
+        revealElements.forEach(el => observer.observe(el));
+
+        // 6. Statistics Counter interpolation
+        const statsSection = document.getElementById('stats-counter-section');
+        const statVals = document.querySelectorAll('.stat-card-val');
+        let animated = false;
+
+        function runCounters() {
+            statVals.forEach(val => {
+                const target = parseFloat(val.getAttribute('data-target'));
+                let current = 0;
+                const duration = 2000; // 2 seconds
+
+                // Check if target is float
+                const isFloat = target % 1 !== 0;
+
+                const stepTime = 20; // 20ms steps
+                const totalSteps = duration / stepTime;
+                const stepValue = target / totalSteps;
+
+                const timer = setInterval(() => {
+                    current += stepValue;
+                    if (current >= target) {
+                        current = target;
+                        clearInterval(timer);
+                    }
+
+                    // Format for display
+                    if (target === 100000) {
+                        val.innerText = Math.floor(current).toLocaleString() + "+";
+                    } else if (target === 500) {
+                        val.innerText = Math.floor(current) + "+";
+                    } else if (isFloat) {
+                        val.innerText = current.toFixed(1) + "%";
+                    } else if (target === 24) {
+                        val.innerText = Math.floor(current) + "/7";
+                    } else {
+                        val.innerText = Math.floor(current);
+                    }
+                }, stepTime);
+            });
+        }
+
+        const statsObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting && !animated) {
+                    runCounters();
+                    animated = true;
+                }
+            });
+        }, {
+            threshold: 0.2
+        });
+
+        if (statsSection) {
+            statsObserver.observe(statsSection);
+        }
+
+        // Mobile Nav Toggle
+        const mobileToggle = document.getElementById('mobile-toggle');
+        const navMenu = document.getElementById('nav-menu');
+        if (mobileToggle) {
+            mobileToggle.addEventListener('click', () => {
+                navMenu.style.display = (navMenu.style.display === 'flex') ? 'none' : 'flex';
+            });
+        }
+    </script>
+</body>
+
+</html>

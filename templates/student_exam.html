@@ -185,7 +185,7 @@
                 Navigating away from the exam window or exiting full-screen mode is a proctoring violation.
             </p>
             <div style="background-color: var(--danger-light); color: var(--danger); padding: 12px; border-radius: 6px; font-weight: 700; display: inline-block; margin-bottom: 24px; font-size: 0.9rem;">
-                Warning Count: <span id="warning-count-text">0</span> / {{ rules.max_tab_switches }}
+                Warning Count: <span id="warning-count-text">0</span> / 3
             </div>
             <div>
                 <button class="btn btn-danger" id="btn-close-warning" style="width: 100%; padding: 12px;">Refocus Window</button>
@@ -194,7 +194,7 @@
     </div>
 
     <!-- Initialization Overlay -->
-    <div class="warning-overlay" id="init-overlay" style="display: flex;">
+    <div class="warning-overlay" id="init-overlay" style="display: none;">
         <div class="warning-dialog" style="max-width: 600px;">
             <i class="fa-solid fa-shield-halved" style="font-size: 3.5rem; color: var(--primary); margin-bottom: 16px;"></i>
             <div class="warning-title">Enter Secure Assessment Mode</div>

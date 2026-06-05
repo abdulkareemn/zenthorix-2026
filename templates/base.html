@@ -18,8 +18,7 @@
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="brand">
-                <div class="brand-icon">P</div>
-                <span>ProctorAI</span>
+                <img src="{{ url_for('static', filename='zenthorix-logo.png') }}?v=4" alt="Zenthorix Logo" class="sidebar-logo">
             </div>
             
             <ul class="nav-menu">
@@ -36,6 +35,12 @@
                     <li class="nav-item {% if request.path == '/admin/live' %}active{% endif %}">
                         <a href="{{ url_for('admin_live') }}"><i class="fa-solid fa-video"></i> Live Proctoring</a>
                     </li>
+                    <li class="nav-item {% if request.path == '/admin/notifications' %}active{% endif %}">
+                        <a href="{{ url_for('admin_notifications') }}">
+                            <i class="fa-solid fa-bell"></i> Notifications
+                            <span class="badge badge-danger notification-badge-count" style="display: none; margin-left: 6px; border-radius: 50%; padding: 2px 6px; font-size: 0.75rem;">0</span>
+                        </a>
+                    </li>
                     <li class="nav-item {% if request.path == '/admin/reports' %}active{% endif %}">
                         <a href="{{ url_for('admin_reports') }}"><i class="fa-solid fa-clipboard-list"></i> Reports</a>
                     </li>
@@ -46,11 +51,11 @@
                     <li class="nav-item {% if request.path == '/student/dashboard' %}active{% endif %}">
                         <a href="{{ url_for('student_dashboard') }}"><i class="fa-solid fa-house"></i> Dashboard</a>
                     </li>
-                    <li class="nav-item {% if request.path == '/student/profile' %}active{% endif %}">
-                        <a href="{{ url_for('student_profile') }}"><i class="fa-solid fa-user"></i> Profile</a>
-                    </li>
                     <li class="nav-item {% if request.path == '/student/results' %}active{% endif %}">
                         <a href="{{ url_for('student_results') }}"><i class="fa-solid fa-chart-bar"></i> Results</a>
+                    </li>
+                    <li class="nav-item {% if request.path == '/student/profile' %}active{% endif %}">
+                        <a href="{{ url_for('student_profile') }}"><i class="fa-solid fa-user"></i> Profile</a>
                     </li>
                 {% endif %}
             </ul>
@@ -69,9 +74,17 @@
                 <div class="top-bar-title">
                     {% block title_header %}Dashboard{% endblock %}
                 </div>
-                <div class="user-profile-menu">
-                    <span class="user-name">{{ session.get('name', 'User') }}</span>
-                    <i class="fa-solid fa-circle-user" style="font-size: 2rem; color: var(--primary);"></i>
+                <div style="display: flex; align-items: center; gap: 20px;">
+                    {% if session.get('role') == 'admin' %}
+                    <div class="top-bar-alerts" style="position: relative; cursor: pointer; display: flex; align-items: center;" onclick="location.href='/admin/notifications'">
+                        <i class="fa-solid fa-bell" id="navbar-bell-icon" style="font-size: 1.35rem; color: var(--text-secondary); transition: transform 0.2s;"></i>
+                        <span class="badge badge-danger notification-badge-count" style="display: none; position: absolute; top: -6px; right: -6px; border-radius: 50%; padding: 2px 5px; font-size: 0.65rem; min-width: 16px; text-align: center;">0</span>
+                    </div>
+                    {% endif %}
+                    <div class="user-profile-menu">
+                        <span class="user-name">{{ session.get('name', 'User') }}</span>
+                        <i class="fa-solid fa-circle-user" style="font-size: 2rem; color: var(--primary);"></i>
+                    </div>
                 </div>
             </header>
             

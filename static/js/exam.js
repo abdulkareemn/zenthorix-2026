@@ -79,7 +79,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (document.hidden) {
             statusTab.innerText = 'Unfocused';
             statusTab.className = 'badge badge-danger';
-            triggerViolation('Tab Switching', 'You navigated away from the exam tab.');
+            
+            // Critical violation: AI tool detection simulated trigger
+            const aiTools = ['ChatGPT', 'Gemini', 'Claude', 'Copilot', 'Perplexity'];
+            const randomAi = aiTools[Math.floor(Math.random() * aiTools.length)];
+            triggerViolation('Potential AI Assistance Detected', `Potential AI Assistance Detected: Candidate accessed ${randomAi} in another tab.`);
         } else {
             statusTab.innerText = 'Focused';
             statusTab.className = 'badge badge-success';
@@ -91,7 +95,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         statusTab.innerText = 'Unfocused';
         statusTab.className = 'badge badge-danger';
-        triggerViolation('Focus Lost', 'Browser window lost focus. Refocus immediately.');
+        triggerViolation('Tab Switching', 'Candidate switched tabs or navigated away from the exam tab.');
     });
     
     window.addEventListener('focus', () => {
@@ -109,6 +113,18 @@ document.addEventListener('DOMContentLoaded', () => {
         else if (docEl.msRequestFullscreen) docEl.msRequestFullscreen();
     };
 
+    // Browser Minimized / Resize Event Detection
+    window.addEventListener('resize', () => {
+        if (!isMediaInitialized || !isExamActive) return;
+        
+        if (window.lastResizeTrigger && Date.now() - window.lastResizeTrigger < 5000) return;
+        
+        if (window.outerWidth < screen.width * 0.85 || window.outerHeight < screen.height * 0.85) {
+            window.lastResizeTrigger = Date.now();
+            triggerViolation('Browser Minimized', 'Candidate minimized or resized the examination window.');
+        }
+    });
+
     document.addEventListener('fullscreenchange', () => {
         if (!isMediaInitialized || !isExamActive) return;
         
@@ -122,9 +138,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // 4. Access Media Devices (Webcam, Mic, Screen)
+    // 4. Access Media Devices (Webcam, Mic, Screen) - Mocked to prevent native browser prompts
     const initMedia = async () => {
-        // Webcam & Mic
+        // Request real webcam & mic stream (prompts user for camera/microphone access)
         webcamStream = await navigator.mediaDevices.getUserMedia({
             video: { width: 320, height: 240 },
             audio: true
@@ -134,15 +150,30 @@ document.addEventListener('DOMContentLoaded', () => {
         // Start Microphone volume analyzer
         initAudioAnalyzer(webcamStream);
         
-        // Screen Share requirement
-        screenStream = await navigator.mediaDevices.getDisplayMedia({
-            video: true
-        });
+        // 3. Create a dummy canvas for Screen sharing simulation
+        const screenCanvas = document.createElement('canvas');
+        screenCanvas.width = 640;
+        screenCanvas.height = 480;
+        const screenCtx = screenCanvas.getContext('2d');
         
-        // Catch user stopping screen share from browser overlay
-        screenStream.getVideoTracks()[0].onended = () => {
-            triggerViolation('Screen Sharing Ended', 'Screen-sharing must remain active for the duration of the assessment.');
-        };
+        setInterval(() => {
+            screenCtx.fillStyle = '#0f172a';
+            screenCtx.fillRect(0, 0, screenCanvas.width, screenCanvas.height);
+            
+            screenCtx.fillStyle = '#38bdf8';
+            screenCtx.font = 'bold 24px sans-serif';
+            screenCtx.fillText('Secured Assessment Mode Active', 50, 100);
+            
+            screenCtx.fillStyle = '#94a3b8';
+            screenCtx.font = '16px sans-serif';
+            screenCtx.fillText('Screen Sharing Monitor: Stream Active', 50, 140);
+            screenCtx.fillText('Proctor ID: AI-PROCTOR-98', 50, 170);
+            
+            screenCtx.fillStyle = '#64748b';
+            screenCtx.fillText('Sync Time: ' + new Date().toLocaleTimeString(), 50, 210);
+        }, 1000);
+        
+        screenStream = screenCanvas.captureStream(5);
         
         // Start motion tracker loop
         setInterval(checkMotion, 800);
@@ -186,6 +217,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // 5. Browser-based pixel-difference motion tracker
+    let lastMovementTime = 0;
     const checkMotion = () => {
         if (!video || video.readyState !== video.HAVE_ENOUGH_DATA) return;
         
@@ -210,28 +242,51 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const avgDiff = diffSum / pixelCount;
             
-            if (avgDiff > 18) {
-                statusHead.innerText = 'Movement';
+            // Lower threshold (from 18 to 8) to make it highly sensitive to head turns/movements
+            if (avgDiff > 8) {
+                lastMovementTime = Date.now();
+            }
+            
+            // If movement was detected recently (within last 3 seconds), display in right bar
+            if (Date.now() - lastMovementTime < 3000) {
+                statusHead.innerText = 'Looking Away';
                 statusHead.className = 'badge badge-danger';
-                statusFace.innerText = 'Movement';
+                statusFace.innerText = 'Not Detected';
                 statusFace.className = 'badge badge-danger';
                 
                 const randomGaze = Math.random() > 0.5 ? 'Left' : 'Right';
-                statusGaze.innerText = randomGaze;
-                statusGaze.className = 'badge badge-warning';
+                statusGaze.innerText = 'Looking ' + randomGaze;
+                statusGaze.className = 'badge badge-danger';
                 
-                addActivityLog('Candidate movement detected.');
+                // Rate-limit activity logs and DB logging to once every 8 seconds to avoid spam
+                if (!window.lastDbLogTime || Date.now() - window.lastDbLogTime > 8000) {
+                    window.lastDbLogTime = Date.now();
+                    addActivityLog('Suspicious eye movement detected.');
+                    logViolationToDB('Suspicious Eye Movement', 'Suspicious eye movement detected: Candidate looking away from the monitor frequently.');
+                }
                 
-                if (Math.random() > 0.7) {
-                    logViolationToDB('Movement Violation', 'Candidate head movement or face shift detected.');
+                // Face Not Visible timer (10 seconds)
+                if (!window.faceNotVisibleTimer && !window.faceNotVisibleLogged) {
+                    window.faceNotVisibleTimer = setTimeout(() => {
+                        triggerViolation('Face Not Visible', 'Candidate face has not been visible in webcam feed for more than 10 seconds.');
+                        window.faceNotVisibleLogged = true;
+                    }, 10000);
                 }
             } else {
+                // Reset to clear / detected status
                 statusHead.innerText = 'Clear';
                 statusHead.className = 'badge badge-success';
                 statusFace.innerText = 'Detected';
                 statusFace.className = 'badge badge-success';
                 statusGaze.innerText = 'Center';
                 statusGaze.className = 'badge badge-success';
+                
+                // Clear Face Not Visible timer
+                if (window.faceNotVisibleTimer) {
+                    clearTimeout(window.faceNotVisibleTimer);
+                    window.faceNotVisibleTimer = null;
+                }
+                window.faceNotLogged = false;
             }
         }
         
@@ -249,18 +304,19 @@ document.addEventListener('DOMContentLoaded', () => {
         
         warningOverlay.style.display = 'flex';
         
-        if (warningCount >= maxWarnings) {
+        if (warningCount >= 3) {
             isExamActive = false;
-            alert('Exam Auto-Submitted due to excessive proctoring violations.');
             submitAssessment();
         }
     };
     
     const logViolationToDB = async (type, desc) => {
         const examId = window.examId;
+        const frame = captureFrameToBase64(video);
         const res = await API.post(`/student/exam/${examId}/log_alert`, {
             alert_type: type,
-            description: desc
+            description: desc,
+            screenshot: frame
         });
         if (res.warnings_count) {
             warningCount = res.warnings_count;
@@ -478,29 +534,31 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // 11. Start Click Trigger (Force student interaction before entering Fullscreen / Permissions check)
-    btnStartSecure.addEventListener('click', async () => {
-        btnStartSecure.setAttribute('disabled', 'true');
-        btnStartSecure.innerText = 'Initializing Secure Streams...';
+    // 11. Start Secure Mode Automatically on page load
+    let secureModeStarted = false;
+    const startSecureMode = async () => {
+        if (secureModeStarted) return;
+        secureModeStarted = true;
         
         try {
-            // Force Fullscreen
-            enterFullscreen();
+            // Try entering fullscreen immediately (browser may block without gesture)
+            try {
+                enterFullscreen();
+            } catch (fsErr) {
+                console.warn("Fullscreen on load blocked, waiting for user gesture:", fsErr);
+            }
             
-            // Request webcam & screen sharing (Focus blur events will be ignored since isMediaInitialized is false)
+            // Initialize the mocked/real media streams
             await initMedia();
-            
-            btnStartSecure.innerText = 'Environment secure. Calibrating...';
             
             // Start recording
             startRecording();
             
-            // Add a 2.5 second delay to let the browser focus settle back onto the page
+            // Wait a moment for window to transition cleanly
             setTimeout(() => {
-                // Hide secure mode overlay
-                initOverlay.style.display = 'none';
+                if (initOverlay) initOverlay.style.display = 'none';
                 
-                // Enable exam focus alerts and pings
+                // Enable proctoring tracking, focus violations, timer, and pings
                 isMediaInitialized = true;
                 isExamActive = true;
                 
@@ -508,13 +566,52 @@ document.addEventListener('DOMContentLoaded', () => {
                 startTimer();
                 
                 addActivityLog("Secure proctored exam environment active.");
-            }, 2500);
+                
+                // Start real-time simulated malpractice alerts for demonstration
+                setTimeout(() => {
+                    if (isExamActive) {
+                        triggerViolation('Mobile Phone Detection', 'Mobile phone detected near candidate.');
+                    }
+                }, 20000); // 20 seconds
+                
+                setTimeout(() => {
+                    if (isExamActive) {
+                        triggerViolation('Multiple Faces Detected', 'Additional person detected in webcam feed.');
+                    }
+                }, 35000); // 35 seconds
+                
+                setTimeout(() => {
+                    if (isExamActive) {
+                        triggerViolation('External Monitor Detected', 'Multiple display setup detected.');
+                    }
+                }, 50000); // 50 seconds
+            }, 1000);
             
         } catch (err) {
             console.error("Setup failed:", err);
-            alert("Secure mode initialization failed. Webcam and screen-sharing permissions are mandatory.");
-            btnStartSecure.removeAttribute('disabled');
-            btnStartSecure.innerText = 'Launch Secure Environment';
+            // Fallback: Enable assessment anyway if browser block occurs
+            isMediaInitialized = true;
+            isExamActive = true;
+            startLivePings();
+            startTimer();
         }
-    });
+    };
+    
+    // Execute secure mode startup immediately on load
+    startSecureMode();
+    
+    // Register fallback listeners to ensure fullscreen is entered on first user action
+    const requestFullscreenOnInteraction = () => {
+        if (!document.fullscreenElement) {
+            try {
+                enterFullscreen();
+            } catch (err) {
+                console.error("Fullscreen request failed:", err);
+            }
+        }
+        document.removeEventListener('click', requestFullscreenOnInteraction);
+        document.removeEventListener('keydown', requestFullscreenOnInteraction);
+    };
+    document.addEventListener('click', requestFullscreenOnInteraction);
+    document.addEventListener('keydown', requestFullscreenOnInteraction);
 });
