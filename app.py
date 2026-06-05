@@ -140,7 +140,7 @@ def init_db():
             cursor.execute("INSERT INTO users (name, email, password, role, status) VALUES (%s, %s, %s, %s, %s)",
                            ('Admin User', 'admin@proctor.ai', 'adminSecure98!_Z', 'admin', 'approved'))
             cursor.execute("INSERT INTO users (name, email, password, role, status) VALUES (%s, %s, %s, %s, %s)",
-                           ('Abhishek', 'student@proctor.ai', 'studentSecure98!_Z', 'student', 'approved'))
+                           ('Abdul Kareem', 'student@proctor.ai', 'studentSecure98!_Z', 'student', 'approved'))
             db.commit()
             
         # Seed default settings if empty
