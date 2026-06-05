@@ -1,5 +1,8 @@
 import os
-import sqlite3
+import psycopg2
+import psycopg2.extras
+from dotenv import load_dotenv
+load_dotenv()
 import json
 import time
 import subprocess
@@ -29,8 +32,7 @@ os.makedirs(SANDBOX_DIR, exist_ok=True)
 def get_db():
     db = getattr(g, '_database', None)
     if db is None:
-        db = g._database = sqlite3.connect(DATABASE)
-        db.row_factory = sqlite3.Row
+        db = g._database = psycopg2.connect(os.environ.get('DATABASE_URI'))
     return db
 
 @app.teardown_appcontext
@@ -42,12 +44,12 @@ def close_connection(exception):
 def init_db():
     with app.app_context():
         db = get_db()
-        cursor = db.cursor()
+        cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
         
         # Users Table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 name TEXT NOT NULL,
                 email TEXT UNIQUE NOT NULL,
                 password TEXT NOT NULL,
@@ -59,7 +61,7 @@ def init_db():
         # Exams Table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS exams (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 name TEXT NOT NULL,
                 duration_mins INTEGER NOT NULL,
                 total_marks INTEGER NOT NULL,
@@ -72,41 +74,37 @@ def init_db():
         # Exam Attempts Table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS exam_attempts (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                exam_id INTEGER NOT NULL,
-                user_id INTEGER NOT NULL,
+                id SERIAL PRIMARY KEY,
+                exam_id INTEGER NOT NULL REFERENCES exams(id),
+                user_id INTEGER NOT NULL REFERENCES users(id),
                 start_time TEXT NOT NULL,
                 end_time TEXT,
                 answers_json TEXT,
                 score INTEGER DEFAULT 0,
                 status TEXT DEFAULT 'ongoing',
-                warnings_count INTEGER DEFAULT 0,
-                FOREIGN KEY (exam_id) REFERENCES exams (id),
-                FOREIGN KEY (user_id) REFERENCES users (id)
+                warnings_count INTEGER DEFAULT 0
             )
         ''')
         
         # Proctor Logs Table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS proctor_logs (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                attempt_id INTEGER NOT NULL,
+                id SERIAL PRIMARY KEY,
+                attempt_id INTEGER NOT NULL REFERENCES exam_attempts(id),
                 timestamp TEXT NOT NULL,
                 alert_type TEXT NOT NULL,
-                description TEXT NOT NULL,
-                FOREIGN KEY (attempt_id) REFERENCES exam_attempts (id)
+                description TEXT NOT NULL
             )
         ''')
         
         # Live Sessions Table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS live_sessions (
-                attempt_id INTEGER PRIMARY KEY,
+                attempt_id INTEGER PRIMARY KEY REFERENCES exam_attempts(id),
                 last_ping REAL NOT NULL,
                 current_status TEXT NOT NULL,
                 webcam_frame TEXT,
-                screen_status TEXT,
-                FOREIGN KEY (attempt_id) REFERENCES exam_attempts (id)
+                screen_status TEXT
             )
         ''')
         
@@ -123,8 +121,8 @@ def init_db():
         # Malpractice Notifications Table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS malpractice_notifications (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                attempt_id INTEGER NOT NULL,
+                id SERIAL PRIMARY KEY,
+                attempt_id INTEGER NOT NULL REFERENCES exam_attempts(id),
                 candidate_name TEXT NOT NULL,
                 exam_name TEXT NOT NULL,
                 violation_type TEXT NOT NULL,
@@ -132,17 +130,16 @@ def init_db():
                 timestamp TEXT NOT NULL,
                 severity TEXT NOT NULL,
                 evidence_screenshot TEXT,
-                status TEXT NOT NULL DEFAULT 'Active',
-                FOREIGN KEY (attempt_id) REFERENCES exam_attempts (id)
+                status TEXT NOT NULL DEFAULT 'Active'
             )
         ''')
         
         # Seed default users if empty
         cursor.execute("SELECT COUNT(*) FROM users")
         if cursor.fetchone()[0] == 0:
-            cursor.execute("INSERT INTO users (name, email, password, role, status) VALUES (?, ?, ?, ?, ?)",
+            cursor.execute("INSERT INTO users (name, email, password, role, status) VALUES (%s, %s, %s, %s, %s)",
                            ('Admin User', 'admin@proctor.ai', 'adminSecure98!_Z', 'admin', 'approved'))
-            cursor.execute("INSERT INTO users (name, email, password, role, status) VALUES (?, ?, ?, ?, ?)",
+            cursor.execute("INSERT INTO users (name, email, password, role, status) VALUES (%s, %s, %s, %s, %s)",
                            ('Abhishek', 'student@proctor.ai', 'studentSecure98!_Z', 'student', 'approved'))
             db.commit()
             
@@ -173,9 +170,9 @@ def init_db():
                     "template": "import java.util.*;\n\npublic class Main {\n    public static void main(String[] args) {\n        // Write your code here\n        System.out.println(\"Hello World\");\n    }\n}"
                 }
             ]
-            cursor.execute("INSERT INTO exams (name, duration_mins, total_marks, rules_json, questions_json, status) VALUES (?, ?, ?, ?, ?, ?)",
+            cursor.execute("INSERT INTO exams (name, duration_mins, total_marks, rules_json, questions_json, status) VALUES (%s, %s, %s, %s, %s, %s)",
                            ('CPA ASSESSMENT', 30, 100, json.dumps(default_rules), json.dumps(default_questions), 'published'))
-            cursor.execute("INSERT INTO exams (name, duration_mins, total_marks, rules_json, questions_json, status) VALUES (?, ?, ?, ?, ?, ?)",
+            cursor.execute("INSERT INTO exams (name, duration_mins, total_marks, rules_json, questions_json, status) VALUES (%s, %s, %s, %s, %s, %s)",
                            ('Java Basics', 45, 100, json.dumps(default_rules), json.dumps(default_questions), 'published'))
             db.commit()
 
@@ -187,8 +184,8 @@ init_db()
 # HELPER: Get active attempt for student
 def get_active_attempt(user_id):
     db = get_db()
-    cursor = db.cursor()
-    cursor.execute("SELECT * FROM exam_attempts WHERE user_id = ? AND status = 'ongoing' ORDER BY id DESC LIMIT 1", (user_id,))
+    cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cursor.execute("SELECT * FROM exam_attempts WHERE user_id = %s AND status = 'ongoing' ORDER BY id DESC LIMIT 1", (user_id,))
     return cursor.fetchone()
 
 # ROUTES
@@ -214,8 +211,8 @@ def login():
         role = request.form.get('role')
         
         db = get_db()
-        cursor = db.cursor()
-        cursor.execute("SELECT * FROM users WHERE email = ? AND password = ? AND role = ?", (email, password, role))
+        cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor.execute("SELECT * FROM users WHERE email = %s AND password = %s AND role = %s", (email, password, role))
         user = cursor.fetchone()
         
         if user:
@@ -243,12 +240,13 @@ def register():
     password = request.form.get('password')
     
     db = get_db()
-    cursor = db.cursor()
+    cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
     try:
-        cursor.execute("INSERT INTO users (name, email, password, role, status) VALUES (?, ?, ?, 'student', 'approved')", (name, email, password))
+        cursor.execute("INSERT INTO users (name, email, password, role, status) VALUES (%s, %s, %s, 'student', 'approved')", (name, email, password))
         db.commit()
         return render_template('login.html', success="Registration successful! You can now log in.")
-    except sqlite3.IntegrityError:
+    except psycopg2.IntegrityError:
+        db.rollback()
         return render_template('login.html', error="Email address already registered.")
 
 @app.route('/logout')
@@ -264,7 +262,7 @@ def admin_dashboard():
         return redirect(url_for('login'))
         
     db = get_db()
-    cursor = db.cursor()
+    cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
     
     cursor.execute("SELECT COUNT(*) FROM users WHERE role = 'student'")
     total_candidates = cursor.fetchone()[0]
@@ -291,7 +289,7 @@ def admin_dashboard():
     
     # Active live counts
     now = time.time()
-    cursor.execute("SELECT COUNT(*) FROM live_sessions WHERE last_ping > ?", (now - 10,))
+    cursor.execute("SELECT COUNT(*) FROM live_sessions WHERE last_ping > %s", (now - 10,))
     active_live = cursor.fetchone()[0]
 
     return render_template('admin_dashboard.html', 
@@ -308,7 +306,7 @@ def admin_candidates():
         return redirect(url_for('login'))
         
     db = get_db()
-    cursor = db.cursor()
+    cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
     cursor.execute("SELECT * FROM users WHERE role = 'student'")
     candidates = cursor.fetchall()
     return render_template('admin_candidates.html', candidates=candidates)
@@ -319,8 +317,8 @@ def approve_candidate(user_id):
         return redirect(url_for('login'))
         
     db = get_db()
-    cursor = db.cursor()
-    cursor.execute("UPDATE users SET status = 'approved' WHERE id = ?", (user_id,))
+    cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cursor.execute("UPDATE users SET status = 'approved' WHERE id = %s", (user_id,))
     db.commit()
     return redirect(url_for('admin_candidates'))
 
@@ -330,8 +328,8 @@ def reject_candidate(user_id):
         return redirect(url_for('login'))
         
     db = get_db()
-    cursor = db.cursor()
-    cursor.execute("UPDATE users SET status = 'rejected' WHERE id = ?", (user_id,))
+    cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cursor.execute("UPDATE users SET status = 'rejected' WHERE id = %s", (user_id,))
     db.commit()
     return redirect(url_for('admin_candidates'))
 
@@ -341,7 +339,7 @@ def admin_exams():
         return redirect(url_for('login'))
         
     db = get_db()
-    cursor = db.cursor()
+    cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
     cursor.execute("SELECT * FROM exams")
     exams = cursor.fetchall()
     return render_template('admin_exams.html', exams=exams)
@@ -388,8 +386,8 @@ def create_exam():
     ]
     
     db = get_db()
-    cursor = db.cursor()
-    cursor.execute("INSERT INTO exams (name, duration_mins, total_marks, rules_json, questions_json) VALUES (?, ?, ?, ?, ?)",
+    cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cursor.execute("INSERT INTO exams (name, duration_mins, total_marks, rules_json, questions_json) VALUES (%s, %s, %s, %s, %s)",
                    (name, duration, marks, json.dumps(rules), json.dumps(questions)))
     db.commit()
     return redirect(url_for('admin_exams'))
@@ -400,8 +398,8 @@ def delete_exam(exam_id):
         return redirect(url_for('login'))
         
     db = get_db()
-    cursor = db.cursor()
-    cursor.execute("DELETE FROM exams WHERE id = ?", (exam_id,))
+    cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cursor.execute("DELETE FROM exams WHERE id = %s", (exam_id,))
     db.commit()
     return redirect(url_for('admin_exams'))
 
@@ -418,7 +416,7 @@ def active_sessions_api():
         return jsonify({"error": "Unauthorized"}), 401
         
     db = get_db()
-    cursor = db.cursor()
+    cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
     
     # Active is defined as pinged in the last 15 seconds
     now = time.time()
@@ -428,13 +426,13 @@ def active_sessions_api():
         JOIN exam_attempts a ON s.attempt_id = a.id
         JOIN users u ON a.user_id = u.id
         JOIN exams e ON a.exam_id = e.id
-        WHERE s.last_ping > ?
+        WHERE s.last_ping > %s
     ''', (now - 15,))
     
     sessions = []
     for row in cursor.fetchall():
         # Get last 3 logs for this session
-        cursor.execute("SELECT alert_type, description, timestamp FROM proctor_logs WHERE attempt_id = ? ORDER BY id DESC LIMIT 3", (row['attempt_id'],))
+        cursor.execute("SELECT alert_type, description, timestamp FROM proctor_logs WHERE attempt_id = %s ORDER BY id DESC LIMIT 3", (row['attempt_id'],))
         recent_logs = [dict(log) for log in cursor.fetchall()]
         
         sessions.append({
@@ -456,7 +454,7 @@ def admin_reports():
         return redirect(url_for('login'))
         
     db = get_db()
-    cursor = db.cursor()
+    cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
     cursor.execute('''
         SELECT a.id as attempt_id, a.start_time, a.end_time, a.score, a.warnings_count, a.status,
                u.name as student_name, u.email as student_email, e.name as exam_name
@@ -475,20 +473,20 @@ def admin_report_details(attempt_id):
         return redirect(url_for('login'))
         
     db = get_db()
-    cursor = db.cursor()
+    cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
     cursor.execute('''
         SELECT a.*, u.name as student_name, u.email as student_email, e.name as exam_name, e.total_marks
         FROM exam_attempts a
         JOIN users u ON a.user_id = u.id
         JOIN exams e ON a.exam_id = e.id
-        WHERE a.id = ?
+        WHERE a.id = %s
     ''', (attempt_id,))
     attempt = cursor.fetchone()
     
     if not attempt:
         return redirect(url_for('admin_reports'))
         
-    cursor.execute("SELECT * FROM proctor_logs WHERE attempt_id = ? ORDER BY id ASC", (attempt_id,))
+    cursor.execute("SELECT * FROM proctor_logs WHERE attempt_id = %s ORDER BY id ASC", (attempt_id,))
     logs = cursor.fetchall()
     
     return render_template('admin_report_detail.html', attempt=attempt, logs=logs)
@@ -499,7 +497,7 @@ def admin_settings():
         return redirect(url_for('login'))
         
     db = get_db()
-    cursor = db.cursor()
+    cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
     
     if request.method == 'POST':
         webcam = 1 if request.form.get('webcam') else 0
@@ -509,13 +507,13 @@ def admin_settings():
         
         # Save to table
         cursor.execute("DELETE FROM system_settings")
-        cursor.execute("INSERT INTO system_settings VALUES (?, ?, ?, ?)", (webcam, audio, max_warnings, auto_submit))
+        cursor.execute("INSERT INTO system_settings VALUES (%s, %s, %s, %s)", (webcam, audio, max_warnings, auto_submit))
         db.commit()
         
         # Update user profile details
         full_name = request.form.get('full_name')
         email = request.form.get('email')
-        cursor.execute("UPDATE users SET name = ?, email = ? WHERE id = ?", (full_name, email, session['user_id']))
+        cursor.execute("UPDATE users SET name = %s, email = %s WHERE id = %s", (full_name, email, session['user_id']))
         db.commit()
         session['name'] = full_name
         session['email'] = email
@@ -538,7 +536,7 @@ def student_dashboard():
         return redirect(url_for('login'))
         
     db = get_db()
-    cursor = db.cursor()
+    cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
     
     # Get all exams
     cursor.execute("SELECT * FROM exams WHERE status = 'published'")
@@ -547,7 +545,7 @@ def student_dashboard():
     # Find exam status for this student
     cursor.execute('''
         SELECT exam_id, status, score FROM exam_attempts 
-        WHERE user_id = ?
+        WHERE user_id = %s
     ''', (session['user_id'],))
     attempts = {row['exam_id']: {"status": row['status'], "score": row['score']} for row in cursor.fetchall()}
     
@@ -556,7 +554,7 @@ def student_dashboard():
         SELECT e.name as exam_name, a.status, a.end_time 
         FROM exam_attempts a 
         JOIN exams e ON a.exam_id = e.id 
-        WHERE a.user_id = ? AND a.status != 'ongoing'
+        WHERE a.user_id = %s AND a.status != 'ongoing'
         ORDER BY a.id DESC LIMIT 4
     ''', (session['user_id'],))
     activities = cursor.fetchall()
@@ -580,7 +578,7 @@ def student_profile():
         return redirect(url_for('login'))
     
     db = get_db()
-    cursor = db.cursor()
+    cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
     cursor.execute("SELECT COUNT(*) FROM exams WHERE status = 'published'")
     published_exams = cursor.fetchone()[0]
     
@@ -592,12 +590,12 @@ def student_results():
         return redirect(url_for('login'))
         
     db = get_db()
-    cursor = db.cursor()
+    cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
     cursor.execute('''
         SELECT a.id as attempt_id, a.score, a.status, a.end_time, e.name as exam_name, e.total_marks
         FROM exam_attempts a
         JOIN exams e ON a.exam_id = e.id
-        WHERE a.user_id = ? AND a.status != 'ongoing'
+        WHERE a.user_id = %s AND a.status != 'ongoing'
     ''', (session['user_id'],))
     results = cursor.fetchall()
     return render_template('student_results.html', results=results)
@@ -608,8 +606,8 @@ def student_verify(exam_id):
         return redirect(url_for('login'))
         
     db = get_db()
-    cursor = db.cursor()
-    cursor.execute("SELECT * FROM exams WHERE id = ?", (exam_id,))
+    cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cursor.execute("SELECT * FROM exams WHERE id = %s", (exam_id,))
     exam = cursor.fetchone()
     
     if not exam:
@@ -623,8 +621,8 @@ def student_instructions(exam_id):
         return redirect(url_for('login'))
         
     db = get_db()
-    cursor = db.cursor()
-    cursor.execute("SELECT * FROM exams WHERE id = ?", (exam_id,))
+    cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cursor.execute("SELECT * FROM exams WHERE id = %s", (exam_id,))
     exam = cursor.fetchone()
     
     if not exam:
@@ -638,8 +636,8 @@ def student_exam(exam_id):
         return redirect(url_for('login'))
         
     db = get_db()
-    cursor = db.cursor()
-    cursor.execute("SELECT * FROM exams WHERE id = ?", (exam_id,))
+    cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cursor.execute("SELECT * FROM exams WHERE id = %s", (exam_id,))
     exam = cursor.fetchone()
     
     if not exam:
@@ -652,22 +650,22 @@ def student_exam(exam_id):
         start_time_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         cursor.execute('''
             INSERT INTO exam_attempts (exam_id, user_id, start_time, status)
-            VALUES (?, ?, ?, 'ongoing')
+            VALUES (%s, %s, %s, 'ongoing') RETURNING id
         ''', (exam_id, session['user_id'], start_time_str))
         db.commit()
         
-        cursor.execute("SELECT last_insert_rowid()")
         attempt_id = cursor.fetchone()[0]
         
         # Insert initial live session
         cursor.execute('''
-            INSERT OR REPLACE INTO live_sessions (attempt_id, last_ping, current_status, screen_status)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO live_sessions (attempt_id, last_ping, current_status, screen_status)
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT (attempt_id) DO UPDATE SET last_ping = EXCLUDED.last_ping, current_status = EXCLUDED.current_status, screen_status = EXCLUDED.screen_status
         ''', (attempt_id, time.time(), 'started', 'shared'))
         db.commit()
         
         # Reload attempt
-        cursor.execute("SELECT * FROM exam_attempts WHERE id = ?", (attempt_id,))
+        cursor.execute("SELECT * FROM exam_attempts WHERE id = %s", (attempt_id,))
         attempt = cursor.fetchone()
         
     # Calculate time remaining
@@ -774,12 +772,13 @@ def ping_session(exam_id):
         return jsonify({"status": "ended"})
         
     db = get_db()
-    cursor = db.cursor()
+    cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
     
     # Update ping
     cursor.execute('''
-        INSERT OR REPLACE INTO live_sessions (attempt_id, last_ping, current_status, webcam_frame, screen_status)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO live_sessions (attempt_id, last_ping, current_status, webcam_frame, screen_status)
+        VALUES (%s, %s, %s, %s, %s)
+        ON CONFLICT (attempt_id) DO UPDATE SET last_ping = EXCLUDED.last_ping, current_status = EXCLUDED.current_status, webcam_frame = EXCLUDED.webcam_frame, screen_status = EXCLUDED.screen_status
     ''', (attempt['id'], time.time(), current_status, webcam_frame, screen_status))
     db.commit()
     
@@ -800,10 +799,10 @@ def log_alert(exam_id):
         return jsonify({"error": "No active attempt"}), 400
         
     db = get_db()
-    cursor = db.cursor()
+    cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
     
     # Get candidate name
-    cursor.execute("SELECT name FROM users WHERE id = ?", (session['user_id'],))
+    cursor.execute("SELECT name FROM users WHERE id = %s", (session['user_id'],))
     user_row = cursor.fetchone()
     candidate_name = user_row['name'] if user_row else 'Student'
     
@@ -829,32 +828,35 @@ def log_alert(exam_id):
         else:
             severity = 'Medium'
 
+    # Get exam name for the attempt
+    cursor.execute("SELECT e.name as exam_name FROM exam_attempts a JOIN exams e ON a.exam_id = e.id WHERE a.id = %s", (attempt['id'],))
+    exam_row = cursor.fetchone()
+    exam_name = exam_row['exam_name'] if exam_row else 'Unknown Exam'
+
     # Insert proctor log (existing table)
     timestamp_str = datetime.now().strftime("%I:%M:%S %p")
     cursor.execute('''
         INSERT INTO proctor_logs (attempt_id, timestamp, alert_type, description)
-        VALUES (?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s)
     ''', (attempt['id'], timestamp_str, alert_type, description))
     
     # Insert malpractice notification (new table)
     cursor.execute('''
         INSERT INTO malpractice_notifications (attempt_id, candidate_name, exam_name, violation_type, description, timestamp, severity, evidence_screenshot, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Active')
-    ''', (attempt['id'], candidate_name, attempt['exam_name'], alert_type, description, timestamp_str, severity, screenshot))
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'Active') RETURNING id
+    ''', (attempt['id'], candidate_name, exam_name, alert_type, description, timestamp_str, severity, screenshot))
+    notification_id = cursor.fetchone()[0]
     
     # Increment warnings count
-    cursor.execute('UPDATE exam_attempts SET warnings_count = warnings_count + 1 WHERE id = ?', (attempt['id'],))
+    cursor.execute('UPDATE exam_attempts SET warnings_count = warnings_count + 1 WHERE id = %s', (attempt['id'],))
     db.commit()
-    
-    # Get the inserted notification ID to broadcast
-    notification_id = cursor.lastrowid
     
     # Broadcast to admin SSE subscribers
     alert_payload = {
         "id": notification_id,
         "attempt_id": attempt['id'],
         "candidate_name": candidate_name,
-        "exam_name": attempt['exam_name'],
+        "exam_name": exam_name,
         "violation_type": alert_type,
         "description": description,
         "timestamp": timestamp_str,
@@ -865,7 +867,7 @@ def log_alert(exam_id):
     broadcast_notification(alert_payload)
     
     # Reload attempt warnings count
-    cursor.execute('SELECT warnings_count FROM exam_attempts WHERE id = ?', (attempt['id'],))
+    cursor.execute('SELECT warnings_count FROM exam_attempts WHERE id = %s', (attempt['id'],))
     warnings_count = cursor.fetchone()[0]
     
     return jsonify({"status": "logged", "warnings_count": warnings_count})
@@ -876,7 +878,7 @@ def submit_exam(exam_id):
         return redirect(url_for('login'))
         
     db = get_db()
-    cursor = db.cursor()
+    cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
     
     attempt = get_active_attempt(session['user_id'])
     if attempt:
@@ -898,13 +900,13 @@ def submit_exam(exam_id):
             
         cursor.execute('''
             UPDATE exam_attempts 
-            SET end_time = ?, answers_json = ?, score = ?, status = 'submitted'
-            WHERE id = ?
+            SET end_time = %s, answers_json = %s, score = %s, status = 'submitted'
+            WHERE id = %s
         ''', (end_time_str, answers_json, score, attempt['id']))
         db.commit()
         
         # Remove from live sessions
-        cursor.execute("DELETE FROM live_sessions WHERE attempt_id = ?", (attempt['id'],))
+        cursor.execute("DELETE FROM live_sessions WHERE attempt_id = %s", (attempt['id'],))
         db.commit()
         
     return render_template('student_results.html', submitted=True)
@@ -918,8 +920,8 @@ def upload_recordings(exam_id):
     if not attempt:
         # If already submitted, find the latest attempt
         db = get_db()
-        cursor = db.cursor()
-        cursor.execute("SELECT id FROM exam_attempts WHERE user_id = ? AND exam_id = ? ORDER BY id DESC LIMIT 1", (session['user_id'], exam_id))
+        cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor.execute("SELECT id FROM exam_attempts WHERE user_id = %s AND exam_id = %s ORDER BY id DESC LIMIT 1", (session['user_id'], exam_id))
         row = cursor.fetchone()
         attempt_id = row['id'] if row else 0
     else:
@@ -950,8 +952,8 @@ def review_report(attempt_id):
         return redirect(url_for('login'))
         
     db = get_db()
-    cursor = db.cursor()
-    cursor.execute("UPDATE exam_attempts SET status = 'reviewed' WHERE id = ?", (attempt_id,))
+    cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cursor.execute("UPDATE exam_attempts SET status = 'reviewed' WHERE id = %s", (attempt_id,))
     db.commit()
     return redirect(url_for('admin_report_details', attempt_id=attempt_id))
 
@@ -1003,26 +1005,26 @@ def admin_notifications_data():
     status = request.args.get('status', '').strip()
     
     db = get_db()
-    cursor = db.cursor()
+    cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
     
     query = "SELECT * FROM malpractice_notifications WHERE 1=1"
     params = []
     
     if candidate:
-        query += " AND candidate_name LIKE ?"
+        query += " AND candidate_name LIKE %s"
         params.append(f"%{candidate}%")
     if exam:
-        query += " AND exam_name LIKE ?"
+        query += " AND exam_name LIKE %s"
         params.append(f"%{exam}%")
     if severity:
-        query += " AND severity = ?"
+        query += " AND severity = %s"
         params.append(severity)
     if status:
-        query += " AND status = ?"
+        query += " AND status = %s"
         params.append(status)
         
     query += " ORDER BY id DESC"
-    cursor.execute(query, params)
+    cursor.execute(query, params if params else None)
     rows = cursor.fetchall()
     
     alerts = []
@@ -1053,16 +1055,16 @@ def admin_notifications_action(alert_id):
         
     action = request.json.get('action')
     db = get_db()
-    cursor = db.cursor()
+    cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
     
     if action == 'mark_reviewed':
-        cursor.execute("UPDATE malpractice_notifications SET status = 'Reviewed' WHERE id = ?", (alert_id,))
+        cursor.execute("UPDATE malpractice_notifications SET status = 'Reviewed' WHERE id = %s", (alert_id,))
         db.commit()
     elif action == 'dismiss':
-        cursor.execute("UPDATE malpractice_notifications SET status = 'Dismissed' WHERE id = ?", (alert_id,))
+        cursor.execute("UPDATE malpractice_notifications SET status = 'Dismissed' WHERE id = %s", (alert_id,))
         db.commit()
     elif action == 'get_details':
-        cursor.execute("SELECT * FROM malpractice_notifications WHERE id = ?", (alert_id,))
+        cursor.execute("SELECT * FROM malpractice_notifications WHERE id = %s", (alert_id,))
         r = cursor.fetchone()
         if r:
             return jsonify({
