@@ -138,27 +138,39 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // 4. Access Media Devices (Webcam, Mic) + Auto Page Capture (no picker)
+    // 4. Access Media Devices (Webcam, Mic) + Screen Recording
+    const initMedia = async () => {
         // Request real webcam & mic stream
         webcamStream = await navigator.mediaDevices.getUserMedia({
             video: { width: 320, height: 240 },
             audio: true
         });
         video.srcObject = webcamStream;
-        video.play();
+        await video.play();
 
         // Start Microphone volume analyzer
         initAudioAnalyzer(webcamStream);
 
-        // Record assessment screen
-        screenStream = await navigator.mediaDevices.getDisplayMedia({
-            video: {
-                displaySurface: "browser"
-            },
-            preferCurrentTab: true,
-            surfaceSwitching: "exclude",
-            monitorTypeSurfaces: "exclude"
-        });
+        // Record assessment screen — preferCurrentTab avoids the share picker in Chrome
+        // Wrapped in try/catch so exam still works if user denies or browser blocks
+        try {
+            screenStream = await navigator.mediaDevices.getDisplayMedia({
+                video: { displaySurface: 'browser' },
+                audio: false,
+                preferCurrentTab: true,
+                surfaceSwitching: 'exclude',
+                monitorTypeSurfaces: 'exclude'
+            });
+            // If the user stops screen share mid-exam, mark it
+            screenStream.getVideoTracks()[0].addEventListener('ended', () => {
+                screenStream = null;
+                addActivityLog('Screen recording stopped by candidate.');
+                triggerViolation('Screen Share Ended', 'Candidate stopped screen sharing during the exam.');
+            });
+        } catch (screenErr) {
+            console.warn('Screen capture unavailable:', screenErr);
+            screenStream = null;
+        }
 
         // Start motion tracker loop
         setInterval(checkMotion, 800);
@@ -579,23 +591,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     
-    // Execute secure mode startup on button click instead of immediately on load
+    // Execute secure mode startup on button click (user gesture required for media + fullscreen)
     if (btnStartSecure) {
         btnStartSecure.addEventListener('click', startSecureMode);
     }
-    
-    // Register fallback listeners to ensure fullscreen is entered on first user action
-    const requestFullscreenOnInteraction = () => {
-        if (!document.fullscreenElement) {
-            try {
-                enterFullscreen();
-            } catch (err) {
-                console.error("Fullscreen request failed:", err);
-            }
-        }
-        document.removeEventListener('click', requestFullscreenOnInteraction);
-        document.removeEventListener('keydown', requestFullscreenOnInteraction);
-    };
-    document.addEventListener('click', requestFullscreenOnInteraction);
-    document.addEventListener('keydown', requestFullscreenOnInteraction);
 });
