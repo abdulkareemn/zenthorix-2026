@@ -138,7 +138,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // 4. Access Media Devices (Webcam, Mic) + Screen Recording
+    // 4. Access Media Devices (Webcam, Mic) + Silent Canvas Screen Capture
     const initMedia = async () => {
         // Request real webcam & mic stream
         webcamStream = await navigator.mediaDevices.getUserMedia({
@@ -148,29 +148,80 @@ document.addEventListener('DOMContentLoaded', () => {
         video.srcObject = webcamStream;
         await video.play();
 
+        // Guard: if student revokes webcam access mid-exam → auto-submit
+        webcamStream.getVideoTracks().forEach(track => {
+            track.onended = () => {
+                if (!isExamActive) return;
+                addActivityLog('CRITICAL: Webcam access revoked by candidate.');
+                triggerViolation('Webcam Disabled', 'Candidate revoked webcam access during the exam. Auto-submitting.');
+                setTimeout(() => submitAssessment(), 1500);
+            };
+        });
+
+        // Guard: if student revokes mic access mid-exam → log violation
+        webcamStream.getAudioTracks().forEach(track => {
+            track.onended = () => {
+                if (!isExamActive) return;
+                addActivityLog('Microphone access revoked by candidate.');
+                triggerViolation('Microphone Disabled', 'Candidate revoked microphone access during the exam.');
+            };
+        });
+
         // Start Microphone volume analyzer
         initAudioAnalyzer(webcamStream);
 
-        // Record assessment screen — preferCurrentTab avoids the share picker in Chrome
-        // Wrapped in try/catch so exam still works if user denies or browser blocks
-        try {
-            screenStream = await navigator.mediaDevices.getDisplayMedia({
-                video: { displaySurface: 'browser' },
-                audio: false,
-                preferCurrentTab: true,
-                surfaceSwitching: 'exclude',
-                monitorTypeSurfaces: 'exclude'
-            });
-            // If the user stops screen share mid-exam, mark it
-            screenStream.getVideoTracks()[0].addEventListener('ended', () => {
-                screenStream = null;
-                addActivityLog('Screen recording stopped by candidate.');
-                triggerViolation('Screen Share Ended', 'Candidate stopped screen sharing during the exam.');
-            });
-        } catch (screenErr) {
-            console.warn('Screen capture unavailable:', screenErr);
-            screenStream = null;
-        }
+        // --- Silent canvas-based screen capture ---
+        // Uses html2canvas to periodically snapshot the exam page into a canvas,
+        // then streams it as a video. Student has NO browser-level stop button.
+        const pageCanvas = document.createElement('canvas');
+        pageCanvas.width = 1280;
+        pageCanvas.height = 720;
+        const pageCtx = pageCanvas.getContext('2d');
+
+        const drawPlaceholder = (label) => {
+            pageCtx.fillStyle = '#0f172a';
+            pageCtx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+            pageCtx.fillStyle = '#38bdf8';
+            pageCtx.font = 'bold 20px sans-serif';
+            pageCtx.fillText('ProctorAI — Secure Exam Session', 40, 60);
+            pageCtx.fillStyle = '#94a3b8';
+            pageCtx.font = '15px sans-serif';
+            pageCtx.fillText(label || 'Initializing screen capture...', 40, 100);
+            pageCtx.fillText('Time: ' + new Date().toLocaleString(), 40, 130);
+        };
+        drawPlaceholder('Starting exam capture...');
+
+        // Capture current exam page into the canvas
+        const captureExamPage = () => {
+            if (!isExamActive) return;
+            if (typeof html2canvas !== 'undefined') {
+                html2canvas(document.body, {
+                    scale: 0.6,
+                    useCORS: true,
+                    logging: false,
+                    width: window.innerWidth,
+                    height: window.innerHeight,
+                    windowWidth: window.innerWidth,
+                    windowHeight: window.innerHeight,
+                    x: 0,
+                    y: window.scrollY || 0,
+                    ignoreElements: (el) => el.id === 'upload-overlay'
+                }).then(snapshot => {
+                    pageCtx.drawImage(snapshot, 0, 0, pageCanvas.width, pageCanvas.height);
+                }).catch(() => {
+                    drawPlaceholder('Exam session active');
+                });
+            } else {
+                drawPlaceholder('Exam session active');
+            }
+        };
+
+        // Capture immediately, then every 2 seconds silently in the background
+        captureExamPage();
+        setInterval(captureExamPage, 2000);
+
+        // Create the MediaStream from the canvas — no browser UI, no stop button
+        screenStream = pageCanvas.captureStream(2);
 
         // Start motion tracker loop
         setInterval(checkMotion, 800);
