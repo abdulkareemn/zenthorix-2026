@@ -105,9 +105,15 @@ def init_db():
                 last_ping REAL NOT NULL,
                 current_status TEXT NOT NULL,
                 webcam_frame TEXT,
-                screen_status TEXT
+                screen_status TEXT,
+                fullscreen_status TEXT,
+                mic_status TEXT
             )
         ''')
+        
+        # Add columns if not exists (Postgres supports ADD COLUMN IF NOT EXISTS)
+        cursor.execute("ALTER TABLE live_sessions ADD COLUMN IF NOT EXISTS fullscreen_status TEXT")
+        cursor.execute("ALTER TABLE live_sessions ADD COLUMN IF NOT EXISTS mic_status TEXT")
         
         # System Settings Table
         cursor.execute('''
@@ -443,6 +449,8 @@ def active_sessions_api():
             "warnings_count": row['warnings_count'],
             "webcam_frame": row['webcam_frame'],
             "screen_status": row['screen_status'],
+            "fullscreen_status": row['fullscreen_status'] if row.get('fullscreen_status') else 'fullscreen',
+            "mic_status": row['mic_status'] if row.get('mic_status') else 'active',
             "current_status": row['current_status'],
             "recent_logs": recent_logs
         })
@@ -767,6 +775,8 @@ def ping_session(exam_id):
     webcam_frame = request.json.get('webcam_frame')
     screen_status = request.json.get('screen_status', 'shared')
     current_status = request.json.get('current_status', 'active')
+    fullscreen_status = request.json.get('fullscreen_status', 'fullscreen')
+    mic_status = request.json.get('mic_status', 'active')
     
     attempt = get_active_attempt(session['user_id'])
     if not attempt:
@@ -777,10 +787,16 @@ def ping_session(exam_id):
     
     # Update ping
     cursor.execute('''
-        INSERT INTO live_sessions (attempt_id, last_ping, current_status, webcam_frame, screen_status)
-        VALUES (%s, %s, %s, %s, %s)
-        ON CONFLICT (attempt_id) DO UPDATE SET last_ping = EXCLUDED.last_ping, current_status = EXCLUDED.current_status, webcam_frame = EXCLUDED.webcam_frame, screen_status = EXCLUDED.screen_status
-    ''', (attempt['id'], time.time(), current_status, webcam_frame, screen_status))
+        INSERT INTO live_sessions (attempt_id, last_ping, current_status, webcam_frame, screen_status, fullscreen_status, mic_status)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        ON CONFLICT (attempt_id) DO UPDATE SET 
+            last_ping = EXCLUDED.last_ping, 
+            current_status = EXCLUDED.current_status, 
+            webcam_frame = EXCLUDED.webcam_frame, 
+            screen_status = EXCLUDED.screen_status,
+            fullscreen_status = EXCLUDED.fullscreen_status,
+            mic_status = EXCLUDED.mic_status
+    ''', (attempt['id'], time.time(), current_status, webcam_frame, screen_status, fullscreen_status, mic_status))
     db.commit()
     
     return jsonify({"status": "ok"})
@@ -853,6 +869,9 @@ def log_alert(exam_id):
     db.commit()
     
     # Broadcast to admin SSE subscribers
+    cursor.execute("SELECT COUNT(*) FROM malpractice_notifications WHERE status = 'Active'")
+    unread_count = cursor.fetchone()[0]
+
     alert_payload = {
         "id": notification_id,
         "attempt_id": attempt['id'],
@@ -863,7 +882,8 @@ def log_alert(exam_id):
         "timestamp": timestamp_str,
         "severity": severity,
         "evidence_screenshot": screenshot,
-        "status": "Active"
+        "status": "Active",
+        "unread_count": unread_count
     }
     broadcast_notification(alert_payload)
     

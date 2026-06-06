@@ -39,72 +39,73 @@
 
     <!-- Split Pane Workspace -->
     <div class="exam-body">
-        
-        <!-- Left Panel: Instructions & Prompt -->
-        <aside class="exam-left-panel">
-            {% for q in questions %}
-                <div class="question-title-wrapper">
-                    <h3 style="font-size: 1.15rem; font-weight: 700;">{{ q.title }}</h3>
-                    <span class="badge badge-primary">{{ q.difficulty }}</span>
-                </div>
-                
-                <p class="question-desc">{{ q.description }}</p>
-                
-                <div class="io-box">
-                    <h4>Sample Input</h4>
-                    <pre>{{ q.sample_input }}</pre>
-                </div>
-                
-                <div class="io-box">
-                    <h4>Expected Output</h4>
-                    <pre>{{ q.expected_output }}</pre>
-                </div>
-                
-                <button class="btn btn-secondary" style="font-size: 0.8rem; padding: 6px 12px; margin-top: 12px;">
-                    Mark for review
-                </button>
-            {% endfor %}
-        </aside>
-
-        <!-- Center Panel: Editor & Code Execution Console -->
-        <main class="exam-center-panel">
-            <div class="editor-header">
-                <span class="editor-title">Main.java</span>
-            </div>
-            
-            <div class="editor-area">
+        <div id="exam-content-blur-zone" style="display: flex; flex-grow: 1; overflow: hidden; height: 100%;">
+            <!-- Left Panel: Instructions & Prompt -->
+            <aside class="exam-left-panel">
                 {% for q in questions %}
-                    <!-- Textarea which CodeMirror will overlay -->
-                    <textarea id="code-editor" class="code-textarea">{{ q.template }}</textarea>
-                {% endfor %}
-            </div>
-            
-            <!-- Code execution console panel -->
-            <div class="console-panel">
-                <div class="console-header">
-                    <span class="console-title">Test Console</span>
-                    <div style="display: flex; gap: 8px;">
-                        <button class="btn btn-secondary" id="btn-run-code" style="padding: 4px 14px; font-size: 0.8rem; height: 28px;">
-                            <i class="fa-solid fa-play"></i> Run
-                        </button>
-                        <button class="btn btn-primary" id="btn-submit-exam" style="padding: 4px 14px; font-size: 0.8rem; height: 28px;">
-                            Submit
-                        </button>
+                    <div class="question-title-wrapper">
+                        <h3 style="font-size: 1.15rem; font-weight: 700;">{{ q.title }}</h3>
+                        <span class="badge badge-primary">{{ q.difficulty }}</span>
                     </div>
+                    
+                    <p class="question-desc">{{ q.description }}</p>
+                    
+                    <div class="io-box">
+                        <h4>Sample Input</h4>
+                        <pre>{{ q.sample_input }}</pre>
+                    </div>
+                    
+                    <div class="io-box">
+                        <h4>Expected Output</h4>
+                        <pre>{{ q.expected_output }}</pre>
+                    </div>
+                    
+                    <button class="btn btn-secondary" style="font-size: 0.8rem; padding: 6px 12px; margin-top: 12px;">
+                        Mark for review
+                    </button>
+                {% endfor %}
+            </aside>
+
+            <!-- Center Panel: Editor & Code Execution Console -->
+            <main class="exam-center-panel">
+                <div class="editor-header">
+                    <span class="editor-title">Main.java</span>
                 </div>
                 
-                <div class="console-body">
-                    <div class="console-input">
-                        <div class="console-box-label">Input</div>
-                        <textarea class="console-box-textarea" id="console-input-box" placeholder="Send arguments/stdin inputs here..."></textarea>
+                <div class="editor-area">
+                    {% for q in questions %}
+                        <!-- Textarea which CodeMirror will overlay -->
+                        <textarea id="code-editor" class="code-textarea">{{ q.template }}</textarea>
+                    {% endfor %}
+                </div>
+                
+                <!-- Code execution console panel -->
+                <div class="console-panel">
+                    <div class="console-header">
+                        <span class="console-title">Test Console</span>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="btn btn-secondary" id="btn-run-code" style="padding: 4px 14px; font-size: 0.8rem; height: 28px;">
+                                <i class="fa-solid fa-play"></i> Run
+                            </button>
+                            <button class="btn btn-primary" id="btn-submit-exam" style="padding: 4px 14px; font-size: 0.8rem; height: 28px;">
+                                Submit
+                            </button>
+                        </div>
                     </div>
-                    <div class="console-output">
-                        <div class="console-box-label">Output</div>
-                        <textarea class="console-box-textarea" id="console-output-box" placeholder="Run code to view output..." readonly></textarea>
+                    
+                    <div class="console-body">
+                        <div class="console-input">
+                            <div class="console-box-label">Input</div>
+                            <textarea class="console-box-textarea" id="console-input-box" placeholder="Send arguments/stdin inputs here..."></textarea>
+                        </div>
+                        <div class="console-output">
+                            <div class="console-box-label">Output</div>
+                            <textarea class="console-box-textarea" id="console-output-box" placeholder="Run code to view output..." readonly></textarea>
+                        </div>
                     </div>
                 </div>
-            </div>
-        </main>
+            </main>
+        </div>
 
         <!-- Right Panel: Proctoring Video & AI Checks Status -->
         <aside class="exam-right-panel">
@@ -193,6 +194,20 @@
         </div>
     </div>
 
+    <!-- Fullscreen Lockout Overlay -->
+    <div class="warning-overlay" id="fullscreen-lockout-overlay" style="display: none;">
+        <div class="warning-dialog" style="border: 2px solid var(--danger);">
+            <i class="fa-solid fa-expand" style="font-size: 3.5rem; color: var(--danger); margin-bottom: 16px;"></i>
+            <div class="warning-title" style="color: var(--danger);">Fullscreen Exit Warning</div>
+            <p style="color: var(--text-secondary); margin-bottom: 24px; font-size: 0.95rem;">
+                Exiting fullscreen mode is a proctoring violation. The exam is paused and your screen is locked.
+            </p>
+            <button class="btn btn-danger" id="btn-restore-fullscreen" style="width: 100%; padding: 12px; font-weight: 700;">
+                Restore Fullscreen & Resume
+            </button>
+        </div>
+    </div>
+
     <!-- Initialization Overlay -->
     <div class="warning-overlay" id="init-overlay" style="display: flex;">
         <div class="warning-dialog" style="max-width: 600px;">
@@ -234,8 +249,8 @@
     </script>
     <!-- html2canvas for automatic exam page recording (no picker needed) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src="{{ url_for('static', filename='js/main.js') }}?v={{ range(1, 100000) | random }}"></script>
-    <script src="{{ url_for('static', filename='js/exam.js') }}?v={{ range(1, 100000) | random }}"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}?v=1.0.0"></script>
+    <script src="{{ url_for('static', filename='js/exam.js') }}?v=1.0.0"></script>
     
     <!-- CodeMirror Binding -->
     <script>

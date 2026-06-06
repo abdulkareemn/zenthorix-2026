@@ -25,12 +25,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const initOverlay = document.getElementById('init-overlay');
     const btnStartSecure = document.getElementById('btn-start-secure-mode');
     const uploadOverlay = document.getElementById('upload-overlay');
+    const lockoutOverlay = document.getElementById('fullscreen-lockout-overlay');
+    const restoreFullscreenBtn = document.getElementById('btn-restore-fullscreen');
+    const blurZone = document.getElementById('exam-content-blur-zone');
     
     // Warnings Dialog
     const warningOverlay = document.getElementById('warning-overlay');
     const warningText = document.getElementById('warning-message-text');
     const warningCountSpan = document.getElementById('warning-count-text');
     const closeWarningBtn = document.getElementById('btn-close-warning');
+    
+    // AbortController for cleaning up event listeners on exam submit
+    const abortController = new AbortController();
+    const { signal } = abortController;
     
     // State variables
     let webcamStream = null;
@@ -52,27 +59,43 @@ document.addEventListener('DOMContentLoaded', () => {
     let webcamChunks = [];
     let screenChunks = [];
     
+    // Intervals
+    let idleInterval = null;
+    let pingInterval = null;
+    let html2canvasInterval = null;
+    
+    // Debounce violation logs
+    const lastViolationLogTimes = {};
+    
     // 1. Block Keyboard Shortcuts & Copy/Paste
     const blockShortcuts = (e) => {
         if (!isExamActive) return;
+        const key = e.key.toLowerCase();
         if (
-            (e.ctrlKey && ['c', 'v', 'x', 'u'].includes(e.key.toLowerCase())) ||
-            ['f12', 'printscreen'].includes(e.key.toLowerCase()) ||
+            (e.ctrlKey && ['c', 'v', 'x', 'u'].includes(key)) ||
+            ['f12', 'printscreen'].includes(key) ||
             (e.ctrlKey && e.shiftKey && e.key === 'I')
         ) {
             e.preventDefault();
             triggerViolation('Security Lockout', 'Copy, paste, view-source, and developer keyboard shortcuts are disabled.');
         }
+        if (e.key === 'F11') {
+            e.preventDefault();
+            triggerViolation('F11 Press', 'Manual fullscreen toggle via F11 is disabled.');
+        }
+        if (e.key === 'Escape') {
+            logViolationToDB('ESC Press', 'Candidate pressed ESC key.');
+        }
     };
     
-    document.addEventListener('keydown', blockShortcuts);
+    document.addEventListener('keydown', blockShortcuts, { signal });
     document.addEventListener('contextmenu', (e) => {
         if (!isExamActive) return;
         e.preventDefault();
         triggerViolation('Security Lockout', 'Right-click is disabled to secure assessment content.');
-    });
+    }, { signal });
     
-    // 2. Tab Focus & Page Visibility Change (Only trigger warnings after media setup is complete)
+    // 2. Tab Focus & Page Visibility Change
     document.addEventListener('visibilitychange', () => {
         if (!isMediaInitialized || !isExamActive) return;
         
@@ -88,7 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
             statusTab.innerText = 'Focused';
             statusTab.className = 'badge badge-success';
         }
-    });
+    }, { signal });
     
     window.addEventListener('blur', () => {
         if (!isMediaInitialized || !isExamActive) return;
@@ -96,15 +119,15 @@ document.addEventListener('DOMContentLoaded', () => {
         statusTab.innerText = 'Unfocused';
         statusTab.className = 'badge badge-danger';
         triggerViolation('Tab Switching', 'Candidate switched tabs or navigated away from the exam tab.');
-    });
+    }, { signal });
     
     window.addEventListener('focus', () => {
         if (!isMediaInitialized || !isExamActive) return;
         
         statusTab.innerText = 'Focused';
         statusTab.className = 'badge badge-success';
-    });
-
+    }, { signal });
+    
     // 3. Fullscreen Enforcement
     const enterFullscreen = () => {
         const docEl = document.documentElement;
@@ -112,10 +135,16 @@ document.addEventListener('DOMContentLoaded', () => {
         else if (docEl.webkitRequestFullscreen) docEl.webkitRequestFullscreen();
         else if (docEl.msRequestFullscreen) docEl.msRequestFullscreen();
     };
-
+    
     // Browser Minimized / Resize Event Detection
     window.addEventListener('resize', () => {
         if (!isMediaInitialized || !isExamActive) return;
+        
+        // Zoom check
+        checkZoom();
+        
+        // DevTools check
+        detectDevTools();
         
         if (window.lastResizeTrigger && Date.now() - window.lastResizeTrigger < 5000) return;
         
@@ -123,61 +152,124 @@ document.addEventListener('DOMContentLoaded', () => {
             window.lastResizeTrigger = Date.now();
             triggerViolation('Browser Minimized', 'Candidate minimized or resized the examination window.');
         }
-    });
-
-    document.addEventListener('fullscreenchange', () => {
+    }, { signal });
+    
+    const handleFullscreenChange = () => {
         if (!isMediaInitialized || !isExamActive) return;
         
         if (!document.fullscreenElement) {
             statusFullscreen.innerText = 'Inactive';
             statusFullscreen.className = 'badge badge-danger';
-            triggerViolation('Fullscreen Exited', 'Exiting full-screen mode is a proctoring violation.');
+            
+            // Pause/Lockout exam
+            if (blurZone) blurZone.classList.add('exam-content-blurred');
+            if (lockoutOverlay) lockoutOverlay.style.display = 'flex';
+            
+            triggerViolation('Fullscreen Exited', 'Exiting full-screen mode is a proctoring violation. Please restore fullscreen to continue.');
         } else {
             statusFullscreen.innerText = 'Active';
             statusFullscreen.className = 'badge badge-success';
+            
+            // Unblur/Resume exam
+            if (blurZone) blurZone.classList.remove('exam-content-blurred');
+            if (lockoutOverlay) lockoutOverlay.style.display = 'none';
         }
-    });
-
+    };
+    
+    document.addEventListener('fullscreenchange', handleFullscreenChange, { signal });
+    
+    if (restoreFullscreenBtn) {
+        restoreFullscreenBtn.addEventListener('click', enterFullscreen, { signal });
+    }
+    
+    // Browser zoom detection
+    let lastPixelRatio = window.devicePixelRatio;
+    const checkZoom = () => {
+        if (!isExamActive) return;
+        if (window.devicePixelRatio !== lastPixelRatio) {
+            triggerViolation('Browser Zoom Changed', `Browser zoom level changed to ${Math.round(window.devicePixelRatio * 100)}%.`);
+            lastPixelRatio = window.devicePixelRatio;
+        }
+    };
+    
+    // DevTools open detection
+    const detectDevTools = () => {
+        if (!isExamActive) return;
+        const widthThreshold = window.outerWidth - window.innerWidth > 160;
+        const heightThreshold = window.outerHeight - window.innerHeight > 160;
+        if (widthThreshold || heightThreshold) {
+            if (!window.devToolsDetected) {
+                window.devToolsDetected = true;
+                triggerViolation('DevTools Opened', 'Developer tools opening detected.');
+            }
+        } else {
+            window.devToolsDetected = false;
+        }
+    };
+    
     // 4. Access Media Devices (Webcam, Mic) + Silent Canvas Screen Capture
     const initMedia = async () => {
-        // Request real webcam & mic stream
-        webcamStream = await navigator.mediaDevices.getUserMedia({
-            video: { width: 320, height: 240 },
-            audio: true
-        });
-        video.srcObject = webcamStream;
-        await video.play();
-
-        // Guard: if student revokes webcam access mid-exam → auto-submit
-        webcamStream.getVideoTracks().forEach(track => {
-            track.onended = () => {
-                if (!isExamActive) return;
-                addActivityLog('CRITICAL: Webcam access revoked by candidate.');
-                triggerViolation('Webcam Disabled', 'Candidate revoked webcam access during the exam. Auto-submitting.');
-                setTimeout(() => submitAssessment(), 1500);
-            };
-        });
-
-        // Guard: if student revokes mic access mid-exam → log violation
-        webcamStream.getAudioTracks().forEach(track => {
-            track.onended = () => {
-                if (!isExamActive) return;
-                addActivityLog('Microphone access revoked by candidate.');
-                triggerViolation('Microphone Disabled', 'Candidate revoked microphone access during the exam.');
-            };
-        });
-
-        // Start Microphone volume analyzer
-        initAudioAnalyzer(webcamStream);
-
+        // Request webcam & mic stream with robust constraints and fallback
+        try {
+            webcamStream = await navigator.mediaDevices.getUserMedia({
+                video: { width: 640, height: 480 },
+                audio: true
+            });
+        } catch (mediaErr) {
+            console.warn("Dual getUserMedia failed, trying video only...", mediaErr);
+            try {
+                webcamStream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: 640, height: 480 }
+                });
+            } catch (videoErr) {
+                console.warn("Video only getUserMedia failed, trying audio only...", videoErr);
+                try {
+                    webcamStream = await navigator.mediaDevices.getUserMedia({
+                        audio: true
+                    });
+                } catch (audioErr) {
+                    console.error("All media capture attempts failed:", audioErr);
+                }
+            }
+        }
+        
+        if (webcamStream) {
+            if (webcamStream.getVideoTracks().length > 0) {
+                video.srcObject = webcamStream;
+                await video.play().catch(e => console.warn("Video playback block:", e));
+            }
+            
+            // Guard: webcam access ended
+            webcamStream.getVideoTracks().forEach(track => {
+                track.onended = () => {
+                    if (!isExamActive) return;
+                    addActivityLog('CRITICAL: Webcam access revoked by candidate.');
+                    triggerViolation('Webcam Disabled', 'Candidate revoked webcam access during the exam. Auto-submitting.');
+                    setTimeout(() => submitAssessment(), 1500);
+                };
+            });
+            
+            // Guard: microphone access ended
+            webcamStream.getAudioTracks().forEach(track => {
+                track.onended = () => {
+                    if (!isExamActive) return;
+                    addActivityLog('Microphone access revoked by candidate.');
+                    triggerViolation('Microphone Disabled', 'Candidate revoked microphone access during the exam.');
+                };
+            });
+            
+            // Start Microphone volume analyzer
+            if (webcamStream.getAudioTracks().length > 0) {
+                initAudioAnalyzer(webcamStream);
+            }
+        }
+        
         // --- Silent canvas-based screen capture ---
-        // Uses html2canvas to periodically snapshot the exam page into a canvas,
-        // then streams it as a video. Student has NO browser-level stop button.
         const pageCanvas = document.createElement('canvas');
         pageCanvas.width = 1280;
         pageCanvas.height = 720;
         const pageCtx = pageCanvas.getContext('2d');
-
+        
         const drawPlaceholder = (label) => {
             pageCtx.fillStyle = '#0f172a';
             pageCtx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
@@ -190,13 +282,14 @@ document.addEventListener('DOMContentLoaded', () => {
             pageCtx.fillText('Time: ' + new Date().toLocaleString(), 40, 130);
         };
         drawPlaceholder('Starting exam capture...');
-
-        // Capture current exam page into the canvas
+        
+        let isCapturingPage = false;
         const captureExamPage = () => {
-            if (!isExamActive) return;
+            if (!isExamActive || isCapturingPage || document.hidden) return;
+            isCapturingPage = true;
             if (typeof html2canvas !== 'undefined') {
                 html2canvas(document.body, {
-                    scale: 0.6,
+                    scale: 0.5,
                     useCORS: true,
                     logging: false,
                     width: window.innerWidth,
@@ -205,28 +298,33 @@ document.addEventListener('DOMContentLoaded', () => {
                     windowHeight: window.innerHeight,
                     x: 0,
                     y: window.scrollY || 0,
-                    ignoreElements: (el) => el.id === 'upload-overlay'
+                    ignoreElements: (el) => el.id === 'upload-overlay' || el.id === 'init-overlay' || el.classList.contains('warning-overlay')
                 }).then(snapshot => {
                     pageCtx.drawImage(snapshot, 0, 0, pageCanvas.width, pageCanvas.height);
+                    isCapturingPage = false;
                 }).catch(() => {
                     drawPlaceholder('Exam session active');
+                    isCapturingPage = false;
                 });
             } else {
                 drawPlaceholder('Exam session active');
+                isCapturingPage = false;
             }
         };
-
-        // Capture immediately, then every 2 seconds silently in the background
+        
+        // Initial snapshot
         captureExamPage();
-        setInterval(captureExamPage, 2000);
-
-        // Create the MediaStream from the canvas — no browser UI, no stop button
+        
+        // Capture every 3.5 seconds to minimize CPU usage
+        html2canvasInterval = setInterval(captureExamPage, 3500);
+        
+        // Create canvas stream
         screenStream = pageCanvas.captureStream(2);
-
-        // Start motion tracker loop
-        setInterval(checkMotion, 800);
+        
+        // Start motion tracker loop via requestAnimationFrame (pauses when hidden)
+        lastMotionCheckTime = 0;
+        requestAnimationFrame(motionCheckLoop);
     };
-
     
     // Audio volume level monitor
     const initAudioAnalyzer = (stream) => {
@@ -252,7 +350,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (average > 40) {
                     statusMic.innerText = 'Noise Alert';
                     statusMic.className = 'badge badge-danger';
-                    addActivityLog('Microphone voice activity detected.');
+                    
+                    if (!window.lastVolumeWarningTime || Date.now() - window.lastVolumeWarningTime > 5000) {
+                        window.lastVolumeWarningTime = Date.now();
+                        addActivityLog('Microphone voice activity detected.');
+                        logViolationToDB('Microphone Noise Warning', 'Candidate microphone captured loud audio or voice activity.');
+                    }
                 } else {
                     statusMic.innerText = 'Live';
                     statusMic.className = 'badge badge-success';
@@ -264,9 +367,21 @@ document.addEventListener('DOMContentLoaded', () => {
             console.warn("Audio Context init failed:", e);
         }
     };
-
-    // 5. Browser-based pixel-difference motion tracker
+    
+    // 5. requestAnimationFrame Motion Tracker
     let lastMovementTime = 0;
+    let lastMotionCheckTime = 0;
+    
+    const motionCheckLoop = () => {
+        if (!isExamActive) return;
+        const now = Date.now();
+        if (now - lastMotionCheckTime >= 800) {
+            checkMotion();
+            lastMotionCheckTime = now;
+        }
+        requestAnimationFrame(motionCheckLoop);
+    };
+    
     const checkMotion = () => {
         if (!video || video.readyState !== video.HAVE_ENOUGH_DATA) return;
         
@@ -291,12 +406,10 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const avgDiff = diffSum / pixelCount;
             
-            // Lower threshold (from 18 to 8) to make it highly sensitive to head turns/movements
             if (avgDiff > 8) {
                 lastMovementTime = Date.now();
             }
             
-            // If movement was detected recently (within last 3 seconds), display in right bar
             if (Date.now() - lastMovementTime < 3000) {
                 statusHead.innerText = 'Looking Away';
                 statusHead.className = 'badge badge-danger';
@@ -307,14 +420,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 statusGaze.innerText = 'Looking ' + randomGaze;
                 statusGaze.className = 'badge badge-danger';
                 
-                // Rate-limit activity logs and DB logging to once every 8 seconds to avoid spam
-                if (!window.lastDbLogTime || Date.now() - window.lastDbLogTime > 8000) {
-                    window.lastDbLogTime = Date.now();
+                if (!window.lastMotionLogTime || Date.now() - window.lastMotionLogTime > 8000) {
+                    window.lastMotionLogTime = Date.now();
                     addActivityLog('Suspicious eye movement detected.');
                     logViolationToDB('Suspicious Eye Movement', 'Suspicious eye movement detected: Candidate looking away from the monitor frequently.');
                 }
                 
-                // Face Not Visible timer (10 seconds)
                 if (!window.faceNotVisibleTimer && !window.faceNotVisibleLogged) {
                     window.faceNotVisibleTimer = setTimeout(() => {
                         triggerViolation('Face Not Visible', 'Candidate face has not been visible in webcam feed for more than 10 seconds.');
@@ -322,7 +433,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     }, 10000);
                 }
             } else {
-                // Reset to clear / detected status
                 statusHead.innerText = 'Clear';
                 statusHead.className = 'badge badge-success';
                 statusFace.innerText = 'Detected';
@@ -330,12 +440,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 statusGaze.innerText = 'Center';
                 statusGaze.className = 'badge badge-success';
                 
-                // Clear Face Not Visible timer
                 if (window.faceNotVisibleTimer) {
                     clearTimeout(window.faceNotVisibleTimer);
                     window.faceNotVisibleTimer = null;
                 }
-                window.faceNotLogged = false;
+                window.faceNotVisibleLogged = false;
             }
         }
         
@@ -351,15 +460,24 @@ document.addEventListener('DOMContentLoaded', () => {
         warningCountSpan.innerText = warningCount;
         warningText.innerText = desc;
         
-        warningOverlay.style.display = 'flex';
+        // Show general warning overlay if it's not a fullscreen exit lockout
+        if (type !== 'Fullscreen Exited') {
+            warningOverlay.style.display = 'flex';
+        }
         
-        if (warningCount >= 3) {
+        if (warningCount >= maxWarnings) {
             isExamActive = false;
             submitAssessment();
         }
     };
     
     const logViolationToDB = async (type, desc) => {
+        const now = Date.now();
+        if (lastViolationLogTimes[type] && now - lastViolationLogTimes[type] < 5000) {
+            return; // 5s debounce per type
+        }
+        lastViolationLogTimes[type] = now;
+        
         const examId = window.examId;
         const frame = captureFrameToBase64(video);
         const res = await API.post(`/student/exam/${examId}/log_alert`, {
@@ -367,7 +485,7 @@ document.addEventListener('DOMContentLoaded', () => {
             description: desc,
             screenshot: frame
         });
-        if (res.warnings_count) {
+        if (res && res.warnings_count !== undefined) {
             warningCount = res.warnings_count;
         }
     };
@@ -380,11 +498,15 @@ document.addEventListener('DOMContentLoaded', () => {
         li.style.borderBottom = '1px solid #f1f5f9';
         li.innerHTML = `<span style="color:var(--text-secondary);font-size:0.75rem;">${timeStr}</span> - ${message}`;
         logsList.insertBefore(li, logsList.firstChild);
+        
+        // Cap activity log node count to 50
+        while (logsList.children.length > 50) {
+            logsList.removeChild(logsList.lastChild);
+        }
     };
-
+    
     closeWarningBtn.addEventListener('click', () => {
         enterFullscreen();
-        // Wait a short duration to ensure browser transitions to fullscreen
         setTimeout(() => {
             if (document.fullscreenElement) {
                 warningOverlay.style.display = 'none';
@@ -392,22 +514,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 alert("Fullscreen authorization is mandatory to continue the assessment. Please click refocus again.");
             }
         }, 150);
-    });
-
-    // 7. Live Proctor Pings
+    }, { signal });
+    
+    // 7. Live Proctor Pings (every 5 seconds)
     const startLivePings = () => {
         const examId = window.examId;
         
-        setInterval(async () => {
+        pingInterval = setInterval(async () => {
             if (!isExamActive) return;
             const frame = captureFrameToBase64(video);
             
+            const screenStatus = (screenStream && screenStream.active) ? 'shared' : 'not_shared';
+            const micStatus = (webcamStream && webcamStream.getAudioTracks().some(t => t.enabled)) ? 'active' : 'inactive';
+            const fullscreenStatus = document.fullscreenElement ? 'fullscreen' : 'windowed';
+            
             await API.post(`/student/exam/${examId}/ping`, {
                 webcam_frame: frame,
-                screen_status: (screenStream && screenStream.active) ? 'shared' : 'not_shared',
-                current_status: document.hidden ? 'away' : 'active'
+                screen_status: screenStatus,
+                current_status: document.hidden ? 'away' : 'active',
+                fullscreen_status: fullscreenStatus,
+                mic_status: micStatus
             });
-        }, 3000);
+        }, 5000);
     };
     
     // 8. Exam Timer
@@ -457,17 +585,21 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             consoleOutput.value = 'COMPILER ERROR:\n' + (result.compiler_error || 'Unknown error occurred.');
         }
-    });
+    }, { signal });
     
     // 10. Video Recording (Webcam & Screen)
     const startRecording = () => {
         // Record Webcam
-        if (webcamStream) {
+        if (webcamStream && (webcamStream.getVideoTracks().length > 0 || webcamStream.getAudioTracks().length > 0)) {
             webcamChunks = [];
             try {
                 webcamRecorder = new MediaRecorder(webcamStream, { mimeType: 'video/webm;codecs=vp8' });
             } catch (e) {
-                webcamRecorder = new MediaRecorder(webcamStream);
+                try {
+                    webcamRecorder = new MediaRecorder(webcamStream, { mimeType: 'video/webm' });
+                } catch (e2) {
+                    webcamRecorder = new MediaRecorder(webcamStream);
+                }
             }
             webcamRecorder.ondataavailable = (e) => {
                 if (e.data && e.data.size > 0) webcamChunks.push(e.data);
@@ -476,12 +608,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         // Record Screen
-        if (screenStream) {
+        if (screenStream && screenStream.getVideoTracks().length > 0) {
             screenChunks = [];
             try {
                 screenRecorder = new MediaRecorder(screenStream, { mimeType: 'video/webm;codecs=vp8' });
             } catch (e) {
-                screenRecorder = new MediaRecorder(screenStream);
+                try {
+                    screenRecorder = new MediaRecorder(screenStream, { mimeType: 'video/webm' });
+                } catch (e2) {
+                    screenRecorder = new MediaRecorder(screenStream);
+                }
             }
             screenRecorder.ondataavailable = (e) => {
                 if (e.data && e.data.size > 0) screenChunks.push(e.data);
@@ -496,8 +632,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let webcamStopped = !webcamRecorder || webcamRecorder.state === 'inactive';
             let screenStopped = !screenRecorder || screenRecorder.state === 'inactive';
             let uploadedAlready = false;
-
-            // 10-second hard timeout — always resolve so form can submit
+            
             const timeoutId = setTimeout(() => {
                 if (!uploadedAlready) {
                     console.warn('Upload timed out — resolving anyway.');
@@ -505,13 +640,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     resolve(false);
                 }
             }, 10000);
-
+            
             const doUpload = async () => {
                 if (uploadedAlready) return;
                 if (!webcamStopped || !screenStopped) return;
                 uploadedAlready = true;
                 clearTimeout(timeoutId);
-
+                
                 const fd = new FormData();
                 if (webcamChunks.length > 0) {
                     const webcamBlob = new Blob(webcamChunks, { type: 'video/webm' });
@@ -521,8 +656,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const screenBlob = new Blob(screenChunks, { type: 'video/webm' });
                     fd.append('screen', screenBlob, 'screen.webm');
                 }
-
-                // Only upload if we actually have data
+                
                 if (webcamChunks.length > 0 || screenChunks.length > 0) {
                     try {
                         const examId = window.examId;
@@ -536,30 +670,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 resolve(true);
             };
-
+            
             if (webcamRecorder && webcamRecorder.state !== 'inactive') {
                 webcamRecorder.onstop = () => { webcamStopped = true; doUpload(); };
                 webcamRecorder.stop();
             }
-
+            
             if (screenRecorder && screenRecorder.state !== 'inactive') {
                 screenRecorder.onstop = () => { screenStopped = true; doUpload(); };
                 screenRecorder.stop();
             }
-
-            // If both were already stopped (or never started), upload immediately
+            
             doUpload();
         });
     };
     
     // Submit Exam helper
-    let isSubmitting = false; // guard against double-submit
+    let isSubmitting = false;
     const submitAssessment = async () => {
-        if (isSubmitting) return;  // prevent double-submit race
+        if (isSubmitting) return;
         isSubmitting = true;
         isExamActive = false;
-
-        // Sync CodeMirror editor value → hidden textarea so backend receives the code
+        
+        // Sync CodeMirror editor value
         try {
             const hiddenTA = document.getElementById('hidden-code-textarea');
             const visibleTA = document.getElementById('code-editor');
@@ -571,88 +704,86 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (syncErr) {
             console.warn('Code sync error:', syncErr);
         }
-
+        
         // Show upload loading overlay
         uploadOverlay.style.display = 'flex';
-
-        // Stop canvas screen stream tracks so MediaRecorder.onstop fires promptly
-        if (screenStream) {
-            screenStream.getTracks().forEach(t => t.stop());
-        }
-
+        
+        // Clean up intervals
+        if (idleInterval) clearInterval(idleInterval);
+        if (pingInterval) clearInterval(pingInterval);
+        if (html2canvasInterval) clearInterval(html2canvasInterval);
+        
+        // Remove all proctoring event listeners
+        abortController.abort();
+        
         // Stop recorders and upload WebM files
         await stopRecordingAndUpload();
-
-        // Clean up webcam tracks
+        
+        // Clean up stream tracks
+        if (screenStream) screenStream.getTracks().forEach(t => t.stop());
         if (webcamStream) webcamStream.getTracks().forEach(t => t.stop());
-
+        
+        // Do NOT programmatic exit fullscreen here as per "after submit only come out from full screen using esc"
+        
         // Programmatically submit the hidden exam form
         document.getElementById('exam-submission-form').submit();
     };
-
+    
     // Trigger submit on the visible Submit button
     document.getElementById('btn-submit-exam').addEventListener('click', () => {
         if (confirm('Are you sure you want to finish and submit your exam?')) {
             submitAssessment();
         }
     });
-
-    // 11. Start Secure Mode Automatically on page load
+    
+    // 11. Start Secure Mode automatically
     let secureModeStarted = false;
     const startSecureMode = async () => {
         if (secureModeStarted) return;
         secureModeStarted = true;
         
         try {
-            // Try entering fullscreen immediately (browser may block without gesture)
             try {
                 enterFullscreen();
             } catch (fsErr) {
                 console.warn("Fullscreen on load blocked, waiting for user gesture:", fsErr);
             }
             
-            // Initialize the mocked/real media streams
+            // Initialize streams
             await initMedia();
             
-            // Start recording
+            // Start background recorders
             startRecording();
             
-            // Wait a moment for window to transition cleanly
             setTimeout(() => {
                 if (initOverlay) initOverlay.style.display = 'none';
                 
-                // Enable proctoring tracking, focus violations, timer, and pings
                 isMediaInitialized = true;
                 isExamActive = true;
                 
                 startLivePings();
                 startTimer();
                 
+                // Idle check interval (every 10s)
+                let idleTime = 0;
+                const resetIdleTimer = () => { idleTime = 0; };
+                document.addEventListener('mousemove', resetIdleTimer, { signal });
+                document.addEventListener('keypress', resetIdleTimer, { signal });
+                
+                idleInterval = setInterval(() => {
+                    if (!isExamActive) return;
+                    idleTime += 10;
+                    if (idleTime >= 60) {
+                        triggerViolation('Idle Detected', 'Candidate has been inactive for more than 60 seconds.');
+                        idleTime = 0;
+                    }
+                }, 10000);
+                
                 addActivityLog("Secure proctored exam environment active.");
-                
-                // Start real-time simulated malpractice alerts for demonstration
-                setTimeout(() => {
-                    if (isExamActive) {
-                        triggerViolation('Mobile Phone Detection', 'Mobile phone detected near candidate.');
-                    }
-                }, 20000); // 20 seconds
-                
-                setTimeout(() => {
-                    if (isExamActive) {
-                        triggerViolation('Multiple Faces Detected', 'Additional person detected in webcam feed.');
-                    }
-                }, 35000); // 35 seconds
-                
-                setTimeout(() => {
-                    if (isExamActive) {
-                        triggerViolation('External Monitor Detected', 'Multiple display setup detected.');
-                    }
-                }, 50000); // 50 seconds
             }, 1000);
             
         } catch (err) {
             console.error("Setup failed:", err);
-            // Fallback: Enable assessment anyway if browser block occurs
             isMediaInitialized = true;
             isExamActive = true;
             startLivePings();
@@ -660,7 +791,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     
-    // Execute secure mode startup on button click (user gesture required for media + fullscreen)
     if (btnStartSecure) {
         btnStartSecure.addEventListener('click', startSecureMode);
     }

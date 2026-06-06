@@ -33,22 +33,30 @@ function formatTimeRemaining(seconds) {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 }
 
-// Convert video frame to base64
+// Convert video frame to base64 using a module-level cached canvas
+let cachedCaptureCanvas = null;
+let cachedCaptureCtx = null;
+
 function captureFrameToBase64(videoElement) {
     if (!videoElement || videoElement.readyState !== videoElement.HAVE_ENOUGH_DATA) {
         return null;
     }
-    const canvas = document.createElement('canvas');
-    canvas.width = 160;  // low resolution for speed
-    canvas.height = 120;
-    const ctx = canvas.getContext('2d');
+    if (!cachedCaptureCanvas) {
+        cachedCaptureCanvas = document.createElement('canvas');
+        cachedCaptureCanvas.width = 160;  // low resolution for speed
+        cachedCaptureCanvas.height = 120;
+        cachedCaptureCtx = cachedCaptureCanvas.getContext('2d');
+    }
     
+    cachedCaptureCtx.save();
+    cachedCaptureCtx.clearRect(0, 0, cachedCaptureCanvas.width, cachedCaptureCanvas.height);
     // mirror the webcam feed just like the display
-    ctx.translate(canvas.width, 0);
-    ctx.scale(-1, 1);
-    ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+    cachedCaptureCtx.translate(cachedCaptureCanvas.width, 0);
+    cachedCaptureCtx.scale(-1, 1);
+    cachedCaptureCtx.drawImage(videoElement, 0, 0, cachedCaptureCanvas.width, cachedCaptureCanvas.height);
+    cachedCaptureCtx.restore();
     
-    return canvas.toDataURL('image/jpeg', 0.6); // medium quality compressibility
+    return cachedCaptureCanvas.toDataURL('image/jpeg', 0.6); // medium quality compressibility
 }
 
 // Web Audio API Sound Synthesizer for Critical alerts
@@ -200,15 +208,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 showLiveToast(alertData);
                 
                 // 4. Update dynamic counts
-                fetch('/admin/notifications/data')
-                    .then(res => res.json())
-                    .then(data => {
-                        if (data.unread_count !== undefined) {
-                            updateNotificationBadgeCount(data.unread_count);
-                        }
-                        const customEvt = new CustomEvent('malpractice-alert', { detail: { alert: alertData, unread_count: data.unread_count } });
-                        window.dispatchEvent(customEvt);
-                    });
+                if (alertData.unread_count !== undefined) {
+                    updateNotificationBadgeCount(alertData.unread_count);
+                }
+                const customEvt = new CustomEvent('malpractice-alert', { 
+                    detail: { alert: alertData, unread_count: alertData.unread_count } 
+                });
+                window.dispatchEvent(customEvt);
             } catch (err) {
                 console.error("Error parsing real-time message:", err);
             }

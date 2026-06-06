@@ -55,14 +55,34 @@
                     return;
                 }
                 
-                emptyState.style.display = 'none';
+                if (emptyState) {
+                    emptyState.style.display = 'none';
+                }
                 
-                // Clear and rebuild grid
-                gridBox.innerHTML = '';
+                // Track active attempt IDs from live sessions
+                const activeAttemptIds = new Set(sessions.map(s => s.attempt_id.toString()));
                 
+                // Remove stale cards that are no longer active
+                const existingCards = gridBox.querySelectorAll('.proctor-monitor-card');
+                existingCards.forEach(card => {
+                    const id = card.getAttribute('data-attempt-id');
+                    if (!activeAttemptIds.has(id)) {
+                        card.remove();
+                    }
+                });
+                
+                // Update existing cards or append new ones
                 sessions.forEach(session => {
-                    const card = document.createElement('div');
-                    card.className = 'proctor-monitor-card';
+                    const attemptId = session.attempt_id.toString();
+                    let card = gridBox.querySelector(`[data-attempt-id="${attemptId}"]`);
+                    let isNew = false;
+                    
+                    if (!card) {
+                        isNew = true;
+                        card = document.createElement('div');
+                        card.className = 'proctor-monitor-card';
+                        card.setAttribute('data-attempt-id', attemptId);
+                    }
                     
                     // Webcam frame
                     let imgHtml = '';
@@ -74,8 +94,18 @@
                     
                     // Screen state badge
                     const screenBadge = session.screen_status === 'shared' 
-                        ? '<span class="badge badge-success"><i class="fa-solid fa-desktop"></i> Screen Shared</span>'
-                        : '<span class="badge badge-danger"><i class="fa-solid fa-desktop"></i> Screen Offline</span>';
+                        ? '<span class="badge badge-success" style="padding: 4px 8px;"><i class="fa-solid fa-desktop"></i> Screen Shared</span>'
+                        : '<span class="badge badge-danger" style="padding: 4px 8px;"><i class="fa-solid fa-desktop"></i> Screen Offline</span>';
+                    
+                    // Mic state badge
+                    const micBadge = session.mic_status === 'active'
+                        ? '<span class="badge badge-success" style="padding: 4px 8px;"><i class="fa-solid fa-microphone"></i> Mic Active</span>'
+                        : '<span class="badge badge-danger" style="padding: 4px 8px;"><i class="fa-solid fa-microphone-slash"></i> Mic Muted</span>';
+                        
+                    // Fullscreen state badge
+                    const fullscreenBadge = session.fullscreen_status === 'fullscreen'
+                        ? '<span class="badge badge-success" style="padding: 4px 8px;"><i class="fa-solid fa-expand"></i> Fullscreen</span>'
+                        : '<span class="badge badge-danger" style="padding: 4px 8px;"><i class="fa-solid fa-compress"></i> Windowed</span>';
                         
                     // Warning status
                     const warnClass = session.warnings_count >= 3 ? 'warn-danger' : 'warn-safe';
@@ -104,16 +134,18 @@
                             </div>
                         </div>
                         <div class="proctor-monitor-info">
-                            <div class="proctor-monitor-name">${session.student_name}</div>
-                            <div class="proctor-monitor-exam">${session.exam_name}</div>
+                            <div class="proctor-monitor-name" style="font-weight:700; font-size:1.1rem; color:var(--text-primary);">${session.student_name}</div>
+                            <div class="proctor-monitor-exam" style="color:var(--text-secondary); font-size:0.8rem; margin-bottom:6px;">${session.exam_name}</div>
                             
-                            <div style="display:flex; justify-content:space-between; margin:8px 0; align-items:center;">
+                            <div style="display:flex; flex-wrap:wrap; gap:6px; margin:8px 0; align-items:center;">
                                 ${screenBadge}
-                                <span class="badge ${session.current_status === 'active' ? 'badge-success' : 'badge-warning'}">${session.current_status.toUpperCase()}</span>
+                                ${micBadge}
+                                ${fullscreenBadge}
+                                <span class="badge ${session.current_status === 'active' ? 'badge-primary' : 'badge-warning'}" style="padding: 4px 8px;">${session.current_status.toUpperCase()}</span>
                             </div>
                             
-                            <div class="proctor-monitor-warnings ${warnClass}">
-                                <span>Warnings: <strong>${session.warnings_count}</strong></span>
+                            <div class="proctor-monitor-warnings ${warnClass}" style="display:flex; justify-content:space-between; align-items:center; padding:8px 12px; border-radius:6px; font-weight:700;">
+                                <span>Warnings: <strong style="font-size:1.1rem;">${session.warnings_count}</strong></span>
                                 <span style="font-size:0.7rem; font-weight:700;">${statusText}</span>
                             </div>
                             
@@ -125,7 +157,10 @@
                             <a href="/admin/reports/${session.attempt_id}" class="btn btn-secondary" style="font-size:0.75rem; padding:6px 12px; margin-top:12px; width:100%;">Inspect Logs</a>
                         </div>
                     `;
-                    gridBox.appendChild(card);
+                    
+                    if (isNew) {
+                        gridBox.appendChild(card);
+                    }
                 });
             } catch (err) {
                 console.error("Error polling live sessions:", err);

@@ -766,7 +766,8 @@ input:checked + .slider:before {
 /* Proctored Video Frame */
 .proctor-video-box {
     width: 100%;
-    height: 180px;
+    aspect-ratio: 3/4;
+    min-height: 240px;
     background-color: #000;
     border-radius: var(--radius-md);
     overflow: hidden;
@@ -839,6 +840,24 @@ input:checked + .slider:before {
     display: none;
     align-items: center;
     justify-content: center;
+}
+
+/* Exam content blur styling */
+.exam-content-blurred {
+    filter: blur(8px) !important;
+    pointer-events: none !important;
+    user-select: none !important;
+}
+
+/* Fullscreen Lockout Overlay */
+#fullscreen-lockout-overlay {
+    background-color: rgba(220, 38, 38, 0.96) !important; /* Premium High-intensity red warning page */
+    z-index: 99999;
+}
+
+/* Badge performance optimization */
+.badge {
+    will-change: transform;
 }
 
 .warning-dialog {
