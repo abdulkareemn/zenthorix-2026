@@ -139,68 +139,26 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // 4. Access Media Devices (Webcam, Mic) + Auto Page Capture (no picker)
-    const initMedia = async () => {
         // Request real webcam & mic stream
         webcamStream = await navigator.mediaDevices.getUserMedia({
             video: { width: 320, height: 240 },
             audio: true
         });
         video.srcObject = webcamStream;
+        video.play();
 
         // Start Microphone volume analyzer
         initAudioAnalyzer(webcamStream);
 
-        // Auto-capture the exam page using html2canvas — no picker, no user interaction.
-        // This records the actual assessment page content as a canvas video stream.
-        const pageCanvas = document.createElement('canvas');
-        pageCanvas.width = 1280;
-        pageCanvas.height = 720;
-        const pageCtx = pageCanvas.getContext('2d');
-
-        // Draw an initial placeholder frame
-        const drawPlaceholder = (label) => {
-            pageCtx.fillStyle = '#0f172a';
-            pageCtx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
-            pageCtx.fillStyle = '#38bdf8';
-            pageCtx.font = 'bold 20px sans-serif';
-            pageCtx.fillText('ProctorAI — Secure Exam Session', 40, 60);
-            pageCtx.fillStyle = '#94a3b8';
-            pageCtx.font = '15px sans-serif';
-            pageCtx.fillText(label || 'Initializing screen capture...', 40, 100);
-            pageCtx.fillText('Time: ' + new Date().toLocaleString(), 40, 130);
-        };
-        drawPlaceholder('Starting...');
-
-        // Periodically capture the current exam page to canvas
-        const captureExamPage = () => {
-            if (typeof html2canvas !== 'undefined') {
-                html2canvas(document.documentElement, {
-                    scale: 0.6,
-                    useCORS: true,
-                    logging: false,
-                    width: window.innerWidth,
-                    height: window.innerHeight,
-                    windowWidth: window.innerWidth,
-                    windowHeight: window.innerHeight,
-                    x: 0,
-                    y: window.scrollY || 0,
-                    ignoreElements: (el) => el.id === 'upload-overlay' || el.id === 'warning-overlay'
-                }).then(snapshot => {
-                    pageCtx.drawImage(snapshot, 0, 0, pageCanvas.width, pageCanvas.height);
-                }).catch(() => {
-                    drawPlaceholder('Exam session active');
-                });
-            } else {
-                drawPlaceholder('Exam session active');
-            }
-        };
-
-        // Capture immediately, then every 2.5 seconds
-        captureExamPage();
-        setInterval(captureExamPage, 2500);
-
-        // Create the media stream from the canvas (2fps is enough for proctoring audit)
-        screenStream = pageCanvas.captureStream(2);
+        // Record assessment screen
+        screenStream = await navigator.mediaDevices.getDisplayMedia({
+            video: {
+                displaySurface: "browser"
+            },
+            preferCurrentTab: true,
+            surfaceSwitching: "exclude",
+            monitorTypeSurfaces: "exclude"
+        });
 
         // Start motion tracker loop
         setInterval(checkMotion, 800);
@@ -535,16 +493,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const submitAssessment = async () => {
         isExamActive = false;
         
-        // Exit Fullscreen programmatically upon submission
-        if (document.fullscreenElement) {
-            try {
-                if (document.exitFullscreen) await document.exitFullscreen();
-                else if (document.webkitExitFullscreen) await document.webkitExitFullscreen();
-                else if (document.msExitFullscreen) await document.msExitFullscreen();
-            } catch (err) {
-                console.warn("Failed to exit fullscreen programmatically:", err);
-            }
-        }
+        // Removed programmatic exit fullscreen as per request (only come out using ESC)
         
         // Show upload loading overlay
         uploadOverlay.style.display = 'flex';
@@ -630,8 +579,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     
-    // Execute secure mode startup immediately on load
-    startSecureMode();
+    // Execute secure mode startup on button click instead of immediately on load
+    if (btnStartSecure) {
+        btnStartSecure.addEventListener('click', startSecureMode);
+    }
     
     // Register fallback listeners to ensure fullscreen is entered on first user action
     const requestFullscreenOnInteraction = () => {
