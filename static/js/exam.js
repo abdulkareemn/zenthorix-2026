@@ -553,25 +553,43 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     // Submit Exam helper
+    let isSubmitting = false; // guard against double-submit
     const submitAssessment = async () => {
+        if (isSubmitting) return;  // prevent double-submit race
+        isSubmitting = true;
         isExamActive = false;
-        
-        // Removed programmatic exit fullscreen as per request (only come out using ESC)
-        
+
+        // Sync CodeMirror editor value → hidden textarea so backend receives the code
+        try {
+            const hiddenTA = document.getElementById('hidden-code-textarea');
+            const visibleTA = document.getElementById('code-editor');
+            if (window.editor && typeof window.editor.getValue === 'function') {
+                hiddenTA.value = window.editor.getValue();
+            } else if (visibleTA) {
+                hiddenTA.value = visibleTA.value;
+            }
+        } catch (syncErr) {
+            console.warn('Code sync error:', syncErr);
+        }
+
         // Show upload loading overlay
         uploadOverlay.style.display = 'flex';
-        
+
+        // Stop canvas screen stream tracks so MediaRecorder.onstop fires promptly
+        if (screenStream) {
+            screenStream.getTracks().forEach(t => t.stop());
+        }
+
         // Stop recorders and upload WebM files
         await stopRecordingAndUpload();
-        
-        // Clean up media tracks
+
+        // Clean up webcam tracks
         if (webcamStream) webcamStream.getTracks().forEach(t => t.stop());
-        if (screenStream) screenStream.getTracks().forEach(t => t.stop());
-        
+
         // Programmatically submit the hidden exam form
         document.getElementById('exam-submission-form').submit();
     };
-    
+
     // Trigger submit on the visible Submit button
     document.getElementById('btn-submit-exam').addEventListener('click', () => {
         if (confirm('Are you sure you want to finish and submit your exam?')) {

@@ -249,13 +249,16 @@
             indentUnit: 4,
             matchBrackets: true
         });
-        
-        // Sync CodeMirror back to raw textarea on changes
+
+        // Expose globally so exam.js submitAssessment can sync value at submit time
+        window.editor = editor;
+
+        // Sync CodeMirror back to raw textarea on every change
         editor.on('change', function(cm) {
             textarea.value = cm.getValue();
             hiddenTextarea.value = cm.getValue();
         });
-        
+
         // Initial load sync
         hiddenTextarea.value = editor.getValue();
     </script>
