@@ -29,14 +29,106 @@
         0% { opacity: 0.4; }
         100% { opacity: 1; }
     }
+    .candidate-video-feed {
+        background-color: #1e293b;
+    }
 </style>
 {% endblock %}
 
 {% block scripts %}
+<!-- Socket.IO library -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', () => {
         const gridBox = document.getElementById('proctor-grid-box');
         const emptyState = document.getElementById('empty-state');
+        
+        // Connect to Socket.IO signaling
+        const socket = io();
+        
+        // Active WebRTC connections (attempt_id -> RTCPeerConnection)
+        const activePeers = {};
+        
+        socket.on('connect', () => {
+            console.log('Connected to signaling server');
+        });
+        
+        // Listen for WebRTC offers from candidates
+        socket.on('webrtc_offer', async (data) => {
+            if (data.sender !== 'candidate') return;
+            const attemptId = data.room.replace('room_', '');
+            console.log(`Received WebRTC offer for attempt ${attemptId}`);
+            
+            // Clean up any existing peer connection
+            if (activePeers[attemptId]) {
+                try {
+                    activePeers[attemptId].close();
+                } catch(e) {}
+            }
+            
+            const pc = new RTCPeerConnection({
+                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+            });
+            activePeers[attemptId] = pc;
+            
+            // Bind track events
+            pc.ontrack = (event) => {
+                console.log(`Received WebRTC track for attempt ${attemptId}`);
+                const card = gridBox.querySelector(`[data-attempt-id="${attemptId}"]`);
+                if (card) {
+                    const videoFeed = card.querySelector('.candidate-video-feed');
+                    const fallbackFrame = card.querySelector('.candidate-fallback-frame');
+                    const noFeed = card.querySelector('.no-feed-placeholder');
+                    const muteBtn = card.querySelector('.btn-mute-unmute');
+                    
+                    if (videoFeed && event.streams[0]) {
+                        videoFeed.srcObject = event.streams[0];
+                        videoFeed.style.display = 'block';
+                        if (fallbackFrame) fallbackFrame.style.display = 'none';
+                        if (noFeed) noFeed.style.display = 'none';
+                        if (muteBtn) muteBtn.style.display = 'block';
+                    }
+                }
+            };
+            
+            pc.onicecandidate = (event) => {
+                if (event.candidate) {
+                    socket.emit('webrtc_ice_candidate', {
+                        room: data.room,
+                        sender: 'admin',
+                        candidate: event.candidate
+                    });
+                }
+            };
+            
+            try {
+                await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+                
+                socket.emit('webrtc_answer', {
+                    room: data.room,
+                    sender: 'admin',
+                    sdp: answer
+                });
+            } catch (err) {
+                console.error("Error establishing WebRTC answer:", err);
+            }
+        });
+        
+        // Listen for ICE candidates
+        socket.on('webrtc_ice_candidate', async (data) => {
+            if (data.sender !== 'candidate') return;
+            const attemptId = data.room.replace('room_', '');
+            const pc = activePeers[attemptId];
+            if (pc && pc.remoteDescription) {
+                try {
+                    await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+                } catch (e) {
+                    console.warn("Error adding ICE candidate:", e);
+                }
+            }
+        });
         
         async function fetchLiveSessions() {
             try {
@@ -52,6 +144,13 @@
                     gridBox.innerHTML = '';
                     gridBox.appendChild(emptyState);
                     emptyState.style.display = 'block';
+                    // Close all active connections
+                    Object.keys(activePeers).forEach(id => {
+                        try {
+                            activePeers[id].close();
+                        } catch(e) {}
+                        delete activePeers[id];
+                    });
                     return;
                 }
                 
@@ -68,6 +167,12 @@
                     const id = card.getAttribute('data-attempt-id');
                     if (!activeAttemptIds.has(id)) {
                         card.remove();
+                        if (activePeers[id]) {
+                            try {
+                                activePeers[id].close();
+                            } catch(e) {}
+                            delete activePeers[id];
+                        }
                     }
                 });
                 
@@ -77,19 +182,35 @@
                     let card = gridBox.querySelector(`[data-attempt-id="${attemptId}"]`);
                     let isNew = false;
                     
+                    // Join candidate signaling room (no-op if already joined)
+                    socket.emit('join', { room: `room_${attemptId}` });
+                    
                     if (!card) {
                         isNew = true;
                         card = document.createElement('div');
                         card.className = 'proctor-monitor-card';
                         card.setAttribute('data-attempt-id', attemptId);
+                        
+                        // Emit negotiation request to the candidate to kick off WebRTC
+                        socket.emit('negotiate_request', { room: `room_${attemptId}`, sender: 'admin' });
                     }
                     
-                    // Webcam frame
-                    let imgHtml = '';
-                    if (session.webcam_frame) {
-                        imgHtml = `<img src="${session.webcam_frame}" alt="webcam feed">`;
-                    } else {
-                        imgHtml = `<div class="no-feed"><i class="fa-solid fa-video-slash" style="font-size:1.5rem;margin-bottom:8px"></i><br>No camera frame synced</div>`;
+                    // Risk Score calculations
+                    let riskScore = 0;
+                    let riskLabel = 'Low';
+                    let riskClass = 'badge-success';
+                    if (session.warnings_count === 1) {
+                        riskScore = 45;
+                        riskLabel = 'Medium';
+                        riskClass = 'badge-warning';
+                    } else if (session.warnings_count === 2) {
+                        riskScore = 80;
+                        riskLabel = 'High';
+                        riskClass = 'badge-danger';
+                    } else if (session.warnings_count >= 3) {
+                        riskScore = 98;
+                        riskLabel = 'Critical';
+                        riskClass = 'badge-danger';
                     }
                     
                     // Screen state badge
@@ -126,40 +247,125 @@
                         logsHtml = '<div style="font-size:0.75rem;color:var(--text-muted);text-align:center;padding:4px 0;">No flags recorded.</div>';
                     }
                     
-                    card.innerHTML = `
-                        <div class="proctor-monitor-feed">
-                            ${imgHtml}
-                            <div class="rec-badge" style="top:10px; right:10px;">
-                                <div class="rec-dot"></div> LIVE
+                    if (isNew) {
+                        card.innerHTML = `
+                            <div class="proctor-monitor-feed" style="position: relative; height: 160px; background-color: #1e293b;">
+                                <video class="candidate-video-feed" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover; display: none; transform: scaleX(-1);"></video>
+                                <img class="candidate-fallback-frame" src="${session.webcam_frame || ''}" style="width: 100%; height: 100%; object-fit: cover; ${session.webcam_frame ? '' : 'display: none;'}" alt="webcam feed">
+                                <div class="no-feed-placeholder" style="display: ${session.webcam_frame ? 'none' : 'flex'}; align-items: center; justify-content: center; height: 100%; color: #94a3b8; font-size: 0.85rem; flex-direction: column;">
+                                    <i class="fa-solid fa-video-slash" style="font-size:1.5rem;margin-bottom:8px"></i>
+                                    <span>No camera feed yet</span>
+                                </div>
+                                <div class="rec-badge" style="top:10px; right:10px; z-index: 5;">
+                                    <div class="rec-dot"></div> LIVE
+                                </div>
+                                <button class="btn btn-secondary btn-mute-unmute" style="position: absolute; bottom: 10px; left: 10px; z-index: 10; padding: 4px 8px; font-size: 0.7rem; height: 24px; display: none;">
+                                    <i class="fa-solid fa-volume-xmark"></i> Mute
+                                </button>
                             </div>
-                        </div>
-                        <div class="proctor-monitor-info">
-                            <div class="proctor-monitor-name" style="font-weight:700; font-size:1.1rem; color:var(--text-primary);">${session.student_name}</div>
-                            <div class="proctor-monitor-exam" style="color:var(--text-secondary); font-size:0.8rem; margin-bottom:6px;">${session.exam_name}</div>
-                            
-                            <div style="display:flex; flex-wrap:wrap; gap:6px; margin:8px 0; align-items:center;">
+                            <div class="proctor-monitor-info">
+                                <div class="proctor-monitor-name" style="font-weight:700; font-size:1.1rem; color:var(--text-primary);">${session.student_name}</div>
+                                <div class="proctor-monitor-exam" style="color:var(--text-secondary); font-size:0.8rem; margin-bottom:6px;">${session.exam_name}</div>
+                                
+                                <div style="display:flex; flex-wrap:wrap; gap:6px; margin:8px 0; align-items:center;">
+                                    ${screenBadge}
+                                    ${micBadge}
+                                    ${fullscreenBadge}
+                                    <span class="badge ${session.current_status === 'active' ? 'badge-primary' : 'badge-warning'}" style="padding: 4px 8px;">${session.current_status.toUpperCase()}</span>
+                                </div>
+                                
+                                <div class="risk-score-display" style="display:flex; justify-content:space-between; margin-bottom: 8px; align-items:center; font-size:0.85rem;">
+                                    <span>Risk Score:</span>
+                                    <span class="badge ${riskClass}">${riskScore}% (${riskLabel})</span>
+                                </div>
+
+                                <div class="proctor-monitor-warnings ${warnClass}" style="display:flex; justify-content:space-between; align-items:center; padding:8px 12px; border-radius:6px; font-weight:700;">
+                                    <span>Warnings: <strong style="font-size:1.1rem;">${session.warnings_count}</strong></span>
+                                    <span style="font-size:0.7rem; font-weight:700;">${statusText}</span>
+                                </div>
+                                
+                                <div style="margin-top:10px; border-top:1px solid #e2e8f0; padding-top:8px;">
+                                    <div style="font-size:0.75rem; font-weight:700; color:var(--text-secondary); margin-bottom:6px;">RECENT ALERTS</div>
+                                    <div class="recent-alerts-list">${logsHtml}</div>
+                                </div>
+                                
+                                <a href="/admin/reports/${session.attempt_id}" class="btn btn-secondary" style="font-size:0.75rem; padding:6px 12px; margin-top:12px; width:100%;">Inspect Logs</a>
+                            </div>
+                        `;
+                        
+                        gridBox.appendChild(card);
+                        
+                        // Setup mute/unmute action handler
+                        const muteBtn = card.querySelector('.btn-mute-unmute');
+                        const videoFeed = card.querySelector('.candidate-video-feed');
+                        if (muteBtn && videoFeed) {
+                            muteBtn.addEventListener('click', () => {
+                                if (videoFeed.muted) {
+                                    videoFeed.muted = false;
+                                    muteBtn.innerHTML = '<i class="fa-solid fa-volume-high"></i> Unmute';
+                                    muteBtn.classList.remove('btn-secondary');
+                                    muteBtn.classList.add('btn-primary');
+                                } else {
+                                    videoFeed.muted = true;
+                                    muteBtn.innerHTML = '<i class="fa-solid fa-volume-xmark"></i> Mute';
+                                    muteBtn.classList.remove('btn-primary');
+                                    muteBtn.classList.add('btn-secondary');
+                                }
+                            });
+                        }
+                    } else {
+                        // Update existing card details
+                        const nameEl = card.querySelector('.proctor-monitor-name');
+                        if (nameEl) nameEl.innerText = session.student_name;
+                        
+                        const examEl = card.querySelector('.proctor-monitor-exam');
+                        if (examEl) examEl.innerText = session.exam_name;
+                        
+                        // Update webcam frame fallback image if WebRTC is not playing
+                        const fallbackFrame = card.querySelector('.candidate-fallback-frame');
+                        const videoFeed = card.querySelector('.candidate-video-feed');
+                        const noFeed = card.querySelector('.no-feed-placeholder');
+                        
+                        if (session.webcam_frame && (!videoFeed || videoFeed.style.display === 'none')) {
+                            if (fallbackFrame) {
+                                fallbackFrame.src = session.webcam_frame;
+                                fallbackFrame.style.display = 'block';
+                            }
+                            if (noFeed) noFeed.style.display = 'none';
+                        }
+                        
+                        // Update Badges & warnings
+                        const badgeContainer = card.querySelector('.proctor-monitor-info > div:nth-of-type(3)');
+                        if (badgeContainer) {
+                            badgeContainer.innerHTML = `
                                 ${screenBadge}
                                 ${micBadge}
                                 ${fullscreenBadge}
                                 <span class="badge ${session.current_status === 'active' ? 'badge-primary' : 'badge-warning'}" style="padding: 4px 8px;">${session.current_status.toUpperCase()}</span>
-                            </div>
-                            
-                            <div class="proctor-monitor-warnings ${warnClass}" style="display:flex; justify-content:space-between; align-items:center; padding:8px 12px; border-radius:6px; font-weight:700;">
+                            `;
+                        }
+                        
+                        const riskDisplay = card.querySelector('.risk-score-display');
+                        if (riskDisplay) {
+                            riskDisplay.innerHTML = `
+                                <span>Risk Score:</span>
+                                <span class="badge ${riskClass}">${riskScore}% (${riskLabel})</span>
+                            `;
+                        }
+                        
+                        const warningBox = card.querySelector('.proctor-monitor-warnings');
+                        if (warningBox) {
+                            warningBox.className = `proctor-monitor-warnings ${warnClass}`;
+                            warningBox.innerHTML = `
                                 <span>Warnings: <strong style="font-size:1.1rem;">${session.warnings_count}</strong></span>
                                 <span style="font-size:0.7rem; font-weight:700;">${statusText}</span>
-                            </div>
-                            
-                            <div style="margin-top:10px; border-top:1px solid #e2e8f0; padding-top:8px;">
-                                <div style="font-size:0.75rem; font-weight:700; color:var(--text-secondary); margin-bottom:6px;">RECENT ALERTS</div>
-                                ${logsHtml}
-                            </div>
-                            
-                            <a href="/admin/reports/${session.attempt_id}" class="btn btn-secondary" style="font-size:0.75rem; padding:6px 12px; margin-top:12px; width:100%;">Inspect Logs</a>
-                        </div>
-                    `;
-                    
-                    if (isNew) {
-                        gridBox.appendChild(card);
+                            `;
+                        }
+                        
+                        const alertsList = card.querySelector('.recent-alerts-list');
+                        if (alertsList) {
+                            alertsList.innerHTML = logsHtml;
+                        }
                     }
                 });
             } catch (err) {
@@ -167,8 +373,19 @@
             }
         }
         
-        // Poll every 3 seconds
-        setInterval(fetchLiveSessions, 3000);
+        // Listen for real-time malpractice alerts to update the grid instantly
+        window.addEventListener('malpractice-alert', (e) => {
+            const alert = e.detail.alert;
+            const attemptId = alert.attempt_id.toString();
+            const card = gridBox.querySelector(`[data-attempt-id="${attemptId}"]`);
+            if (card) {
+                // Instantly fetch updated session data to reflect the new violation
+                fetchLiveSessions();
+            }
+        });
+        
+        // Poll active candidate list every 4 seconds
+        setInterval(fetchLiveSessions, 4000);
         fetchLiveSessions();
     });
 </script>

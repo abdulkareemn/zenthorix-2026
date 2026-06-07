@@ -4,8 +4,8 @@
 
 {% block content %}
 <div class="page-header">
-    <h1>Welcome back, Admin</h1>
-    <p>Overview of system activity and active assessments.</p>
+    <h1>Welcome back, {{ session.get('name', 'Admin') }}</h1>
+    <p>Overview of system activity, active assessments, and integrity metrics.</p>
 </div>
 
 <!-- Stats Grid -->
@@ -32,11 +32,11 @@
 
     <div class="stat-card">
         <div class="stat-info">
-            <h3>Total Users</h3>
-            <div class="stat-value">{{ total_users }}</div>
+            <h3>Total Warnings</h3>
+            <div class="stat-value" style="color: var(--warning);">{{ total_warnings }}</div>
         </div>
-        <div class="stat-icon icon-green">
-            <i class="fa-solid fa-user-shield"></i>
+        <div class="stat-icon icon-warning" style="background-color: #fef3c7;">
+            <i class="fa-solid fa-triangle-exclamation" style="color: var(--warning);"></i>
         </div>
     </div>
 
@@ -51,12 +51,47 @@
     </div>
 </div>
 
+<!-- Integrity Index Banner -->
+<div class="card" style="margin-bottom: 24px; background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); border: none; color: white;">
+    <div class="card-body" style="padding: 20px 28px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
+            <div>
+                <div style="font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em; color: #94a3b8; font-weight: 700;">Overall Exam Integrity Index</div>
+                <div style="display: flex; align-items: baseline; gap: 12px; margin-top: 4px;">
+                    <span style="font-size: 2.4rem; font-weight: 800; color: {% if integrity_index >= 90 %}#10b981{% elif integrity_index >= 70 %}#f59e0b{% else %}#ef4444{% endif %};">{{ integrity_index }}%</span>
+                    <span style="font-size: 0.9rem; color: #64748b;">based on {{ total_warnings }} total alerts across {{ total_users }} sessions</span>
+                </div>
+            </div>
+            <div style="display: flex; gap: 16px; align-items: center;">
+                <div style="text-align: center;">
+                    <div style="font-size: 0.75rem; color: #64748b; text-transform: uppercase;">Clean Sessions</div>
+                    <div style="font-size: 1.5rem; font-weight: 700; color: #10b981;">{{ clean_sessions }}</div>
+                </div>
+                <div style="width: 1px; height: 40px; background: #334155;"></div>
+                <div style="text-align: center;">
+                    <div style="font-size: 0.75rem; color: #64748b; text-transform: uppercase;">Flagged</div>
+                    <div style="font-size: 1.5rem; font-weight: 700; color: #ef4444;">{{ flagged_sessions }}</div>
+                </div>
+                <div style="width: 1px; height: 40px; background: #334155;"></div>
+                <div style="text-align: center;">
+                    <div style="font-size: 0.75rem; color: #64748b; text-transform: uppercase;">Reviewed</div>
+                    <div style="font-size: 1.5rem; font-weight: 700; color: #8b5cf6;">{{ reviewed_sessions }}</div>
+                </div>
+            </div>
+        </div>
+        <!-- Progress bar -->
+        <div style="margin-top: 16px; height: 6px; background: #1e293b; border-radius: 10px; overflow: hidden; border: 1px solid #334155;">
+            <div style="height: 100%; width: {{ integrity_index }}%; background: {% if integrity_index >= 90 %}linear-gradient(90deg, #10b981, #34d399){% elif integrity_index >= 70 %}linear-gradient(90deg, #f59e0b, #fbbf24){% else %}linear-gradient(90deg, #ef4444, #f87171){% endif %}; border-radius: 10px; transition: width 1s ease;"></div>
+        </div>
+    </div>
+</div>
+
 <div class="dashboard-grid">
     <!-- Left Column: Recent Security Alerts -->
     <div class="card">
         <div class="card-header">
             <h3 class="card-title">Recent System Alerts</h3>
-            <a href="{{ url_for('admin_reports') }}" class="btn btn-secondary" style="font-size:0.75rem;padding:6px 12px">View Reports</a>
+            <a href="{{ url_for('admin_reports') }}" class="btn btn-secondary" style="font-size:0.75rem;padding:6px 12px">View All Reports</a>
         </div>
         <div class="card-body" style="padding: 0;">
             <div class="table-responsive">
@@ -66,7 +101,6 @@
                             <th>Candidate</th>
                             <th>Exam Name</th>
                             <th>Alert Type</th>
-                            <th>Description</th>
                             <th>Timestamp</th>
                         </tr>
                     </thead>
@@ -75,21 +109,18 @@
                             {% for alert in recent_alerts %}
                                 <tr>
                                     <td><strong>{{ alert.candidate_name }}</strong></td>
-                                    <td>{{ alert.exam_name }}</td>
+                                    <td style="color: var(--text-secondary); font-size: 0.875rem;">{{ alert.exam_name }}</td>
                                     <td>
-                                        <span class="badge badge-danger">
-                                            {{ alert.alert_type }}
-                                        </span>
+                                        <span class="badge badge-danger">{{ alert.alert_type }}</span>
                                     </td>
-                                    <td>{{ alert.description }}</td>
-                                    <td>{{ alert.timestamp }}</td>
+                                    <td style="color: var(--text-secondary); font-size: 0.8rem; white-space: nowrap;">{{ alert.timestamp }}</td>
                                 </tr>
                             {% endfor %}
                         {% else: %}
                             <tr>
-                                <td colspan="5" style="text-align: center; color: var(--text-secondary); padding: 32px 0;">
-                                    <i class="fa-solid fa-circle-info" style="font-size: 1.5rem; margin-bottom: 8px;"></i><br>
-                                    No proctoring warnings logged.
+                                <td colspan="4" style="text-align: center; color: var(--text-secondary); padding: 32px 0;">
+                                    <i class="fa-solid fa-circle-check" style="font-size: 1.5rem; color: var(--success); margin-bottom: 8px;"></i><br>
+                                    No proctoring warnings logged yet.
                                 </td>
                             </tr>
                         {% endif %}
@@ -99,7 +130,7 @@
         </div>
     </div>
 
-    <!-- Right Column: Quick Actions & Live Monitor -->
+    <!-- Right Column: Live Monitor -->
     <div class="card">
         <div class="card-header">
             <h3 class="card-title">Live Monitoring Console</h3>
@@ -113,8 +144,13 @@
                     {% endif %}
                 </div>
                 <h4>Active Streams: <span style="color:var(--danger)">{{ active_live }}</span></h4>
-                <p style="color:var(--text-secondary);font-size:0.85rem;margin:8px 0 20px">Monitor candidate screen states and camera feeds live.</p>
-                <a href="{{ url_for('admin_live') }}" class="btn btn-primary" style="width: 100%;">Launch Monitor Grid</a>
+                <p style="color:var(--text-secondary);font-size:0.85rem;margin:8px 0 20px">Monitor candidate camera feeds and screen captures live.</p>
+                <a href="{{ url_for('admin_live') }}" class="btn btn-primary" style="width: 100%; margin-bottom: 12px;">
+                    <i class="fa-solid fa-video"></i> Launch Monitor Grid
+                </a>
+                <a href="{{ url_for('admin_notifications') }}" class="btn btn-secondary" style="width: 100%; font-size: 0.85rem;">
+                    <i class="fa-solid fa-bell"></i> View Alerts &amp; Notifications
+                </a>
             </div>
         </div>
     </div>
@@ -126,4 +162,83 @@
         100% { opacity: 1; }
     }
 </style>
+
+<script>
+    // Real-time updates without page refresh
+    window.addEventListener('malpractice-alert', (e) => {
+        const alert = e.detail.alert;
+        
+        // Update Total Warnings Counter
+        const statsCards = document.querySelectorAll('.stat-card');
+        if (statsCards.length >= 3) {
+            const totalWarningsEl = statsCards[2].querySelector('.stat-value');
+            if (totalWarningsEl) {
+                totalWarningsEl.innerText = parseInt(totalWarningsEl.innerText || 0) + 1;
+            }
+        }
+
+        // Update Flagged Sessions roughly (since we don't know if this attempt was already flagged, we just ensure it's not 0)
+        // A full recalculation would require polling the API, but this gives immediate visual feedback.
+        const integrityIndexEl = document.querySelector('.card-body span[style*="font-size: 2.4rem"]');
+        if (integrityIndexEl) {
+            let currentVal = parseInt(integrityIndexEl.innerText.replace('%', ''));
+            let newVal = Math.max(0, currentVal - 5); // Approximate 5 points drop per warning as per app.py logic
+            integrityIndexEl.innerText = newVal + '%';
+            
+            // Update color based on threshold
+            if (newVal >= 90) integrityIndexEl.style.color = '#10b981';
+            else if (newVal >= 70) integrityIndexEl.style.color = '#f59e0b';
+            else integrityIndexEl.style.color = '#ef4444';
+            
+            // Update progress bar
+            const progressBar = document.querySelector('.card-body > div:last-child > div');
+            if (progressBar) {
+                progressBar.style.width = newVal + '%';
+                if (newVal >= 90) progressBar.style.background = 'linear-gradient(90deg, #10b981, #34d399)';
+                else if (newVal >= 70) progressBar.style.background = 'linear-gradient(90deg, #f59e0b, #fbbf24)';
+                else progressBar.style.background = 'linear-gradient(90deg, #ef4444, #f87171)';
+            }
+        }
+
+        // Add to Recent Alerts Table
+        const tbody = document.querySelector('.table tbody');
+        if (tbody) {
+            // Remove 'No warnings logged' if it exists
+            const noWarnings = tbody.querySelector('td[colspan="4"]');
+            if (noWarnings) {
+                noWarnings.parentElement.remove();
+            }
+
+            const tr = document.createElement('tr');
+            
+            // Badge color based on severity
+            let badgeClass = 'badge-danger';
+            if (alert.severity === 'Medium') badgeClass = 'badge-warning';
+            else if (alert.severity === 'Low') badgeClass = 'badge-primary';
+            else if (alert.severity === 'Critical') badgeClass = 'badge-danger';
+
+            tr.innerHTML = `
+                <td><strong>${alert.candidate_name}</strong></td>
+                <td style="color: var(--text-secondary); font-size: 0.875rem;">${alert.exam_name}</td>
+                <td>
+                    <span class="badge ${badgeClass}">${alert.violation_type}</span>
+                </td>
+                <td style="color: var(--text-secondary); font-size: 0.8rem; white-space: nowrap;">${alert.timestamp}</td>
+            `;
+            
+            // Highlight effect
+            tr.style.backgroundColor = '#fef2f2';
+            setTimeout(() => { tr.style.backgroundColor = 'transparent'; }, 2000);
+
+            // Insert at the top
+            tbody.insertBefore(tr, tbody.firstChild);
+            
+            // Keep only 5 rows max
+            if (tbody.children.length > 5) {
+                tbody.lastChild.remove();
+            }
+        }
+    });
+</script>
 {% endblock %}
+

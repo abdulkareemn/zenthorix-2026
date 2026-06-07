@@ -35,20 +35,36 @@
             <h3 class="card-title">Submission Details</h3>
         </div>
         <div class="card-body">
-            <div style="display:flex; justify-content:space-between; margin-bottom:20px; border-bottom:1px solid var(--border-color); padding-bottom:12px;">
+        <div style="display:flex; justify-content:space-between; margin-bottom:20px; border-bottom:1px solid var(--border-color); padding-bottom:16px; flex-wrap:wrap; gap:16px;">
                 <div>
-                    <span style="font-size:0.8rem; text-transform:uppercase; color:var(--text-secondary)">Final Score</span>
-                    <h2 style="font-size:2rem; color:var(--primary)">{{ attempt.score }} / {{ attempt.total_marks }}</h2>
+                    <span style="font-size:0.78rem; text-transform:uppercase; color:var(--text-secondary); font-weight:700;">Final Score</span>
+                    {% set score_pct = (attempt.score / attempt.total_marks * 100) | round(0) if attempt.total_marks else 0 %}
+                    <h2 style="font-size:2rem; color:{% if score_pct >= 80 %}var(--success){% elif score_pct >= 50 %}var(--warning){% else %}var(--danger){% endif %};">{{ attempt.score }} <span style="font-size:1rem; color:var(--text-secondary);">/ {{ attempt.total_marks }}</span></h2>
+                    <div style="font-size:0.8rem; color:var(--text-secondary);">{{ score_pct }}% achieved</div>
                 </div>
                 <div>
-                    <span style="font-size:0.8rem; text-transform:uppercase; color:var(--text-secondary)">Warnings count</span>
-                    <h2 style="font-size:2rem; color:{% if attempt.warnings_count >= 3 %}var(--danger){% else %}var(--warning){% endif %}">
+                    <span style="font-size:0.78rem; text-transform:uppercase; color:var(--text-secondary); font-weight:700;">Warnings Logged</span>
+                    <h2 style="font-size:2rem; color:{% if attempt.warnings_count >= 3 %}var(--danger){% elif attempt.warnings_count > 0 %}var(--warning){% else %}var(--success){% endif %};">
                         {{ attempt.warnings_count }}
                     </h2>
+                    <div style="font-size:0.8rem; color:var(--text-secondary);">{% if attempt.warnings_count == 0 %}Clean session{% else %}Security flags{% endif %}</div>
                 </div>
                 <div>
-                    <span style="font-size:0.8rem; text-transform:uppercase; color:var(--text-secondary)">Time Started</span>
+                    <span style="font-size:0.78rem; text-transform:uppercase; color:var(--text-secondary); font-weight:700;">Time Started</span>
                     <p style="font-weight:600; margin-top:4px;">{{ attempt.start_time }}</p>
+                    <div style="font-size:0.8rem; color:var(--text-secondary);">Completed: {{ attempt.end_time }}</div>
+                </div>
+            </div>
+
+            <!-- Integrity bar -->
+            {% set integrity = [0, 100 - (attempt.warnings_count * 18)] | max %}
+            <div style="margin-bottom:20px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                    <span style="font-size:0.8rem; font-weight:700; color:var(--text-secondary); text-transform:uppercase;">Session Integrity</span>
+                    <span style="font-size:0.85rem; font-weight:700; color:{% if integrity >= 80 %}var(--success){% elif integrity >= 50 %}var(--warning){% else %}var(--danger){% endif %};">{{ integrity }}%</span>
+                </div>
+                <div style="height:8px; background:#e2e8f0; border-radius:10px; overflow:hidden;">
+                    <div style="height:100%; width:{{ integrity }}%; background:{% if integrity >= 80 %}var(--success){% elif integrity >= 50 %}var(--warning){% else %}var(--danger){% endif %}; border-radius:10px; transition:width 0.6s;"></div>
                 </div>
             </div>
 

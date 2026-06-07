@@ -1,0 +1,364 @@
+{% extends 'base.html' %}
+
+{% block title_header %}Integrity Analytics{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+    <div>
+        <h1>Integrity Analytics &amp; Risk Insights</h1>
+        <p>Monitor real-time system integrity levels, threat distributions, and exam-level compliance metrics.</p>
+    </div>
+    <button class="btn btn-secondary" onclick="fetchAnalyticsData()" style="font-size:0.8rem; padding:8px 16px;">
+        <i class="fa-solid fa-arrows-rotate"></i> Refresh Metrics
+    </button>
+</div>
+
+<!-- KPI Summary Cards -->
+<div class="stats-grid" style="margin-bottom: 28px;">
+    <div class="stat-card" style="border-left: 4px solid var(--accent);">
+        <div class="stat-info">
+            <h3>System Integrity</h3>
+            <div class="stat-value" id="kpi-integrity-score">--%</div>
+        </div>
+        <div class="stat-icon icon-purple">
+            <i class="fa-solid fa-shield-halved"></i>
+        </div>
+    </div>
+    <div class="stat-card" style="border-left: 4px solid var(--danger);">
+        <div class="stat-info">
+            <h3>Total Warnings</h3>
+            <div class="stat-value" id="kpi-total-warnings">--</div>
+        </div>
+        <div class="stat-icon icon-red">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+        </div>
+    </div>
+    <div class="stat-card" style="border-left: 4px solid var(--blue);">
+        <div class="stat-info">
+            <h3>Monitored Sessions</h3>
+            <div class="stat-value" id="kpi-total-sessions">--</div>
+        </div>
+        <div class="stat-icon icon-blue">
+            <i class="fa-solid fa-desktop"></i>
+        </div>
+    </div>
+    <div class="stat-card" style="border-left: 4px solid var(--warning);">
+        <div class="stat-info">
+            <h3>Flag Rate</h3>
+            <div class="stat-value" id="kpi-flag-rate">--%</div>
+        </div>
+        <div class="stat-icon icon-warning" style="background-color: var(--warning-light); color: var(--warning);">
+            <i class="fa-solid fa-flag"></i>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Section -->
+<div class="dashboard-grid" style="grid-template-columns: 1.2fr 1.8fr; margin-bottom: 28px;">
+    <!-- Warnings Distribution Chart -->
+    <div class="card" style="margin-bottom:0; display:flex; flex-direction:column;">
+        <div class="card-header">
+            <h3 class="card-title"><i class="fa-solid fa-chart-pie" style="color:var(--accent); margin-right:8px;"></i>Violation Categories</h3>
+        </div>
+        <div class="card-body" style="flex:1; display:flex; align-items:center; justify-content:center; position:relative; min-height: 280px; max-height: 320px;">
+            <canvas id="violationChart" style="max-height:100%; max-width:100%;"></canvas>
+            <div id="violation-empty-state" style="display:none; text-align:center; color:var(--text-secondary);">
+                <i class="fa-solid fa-chart-pie" style="font-size:2.5rem; margin-bottom:8px; color:var(--text-muted);"></i>
+                <p>No violations recorded yet</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Exam Integrity Rankings -->
+    <div class="card" style="margin-bottom:0; display:flex; flex-direction:column;">
+        <div class="card-header">
+            <h3 class="card-title"><i class="fa-solid fa-chart-bar" style="color:var(--primary); margin-right:8px;"></i>Integrity Index by Exam</h3>
+        </div>
+        <div class="card-body" style="flex:1; display:flex; align-items:center; justify-content:center; position:relative; min-height: 280px; max-height: 320px;">
+            <canvas id="examChart" style="max-height:100%; max-width:100%;"></canvas>
+            <div id="exam-empty-state" style="display:none; text-align:center; color:var(--text-secondary);">
+                <i class="fa-solid fa-chart-bar" style="font-size:2.5rem; margin-bottom:8px; color:var(--text-muted);"></i>
+                <p>No exam data available</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- High Risk Candidates Table -->
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title"><i class="fa-solid fa-triangle-exclamation" style="color:var(--danger); margin-right:8px;"></i>High-Risk Exam Sessions</h3>
+    </div>
+    <div class="card-body" style="padding:0;">
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Attempt ID</th>
+                        <th>Candidate</th>
+                        <th>Exam Name</th>
+                        <th>Warnings</th>
+                        <th>Computed Integrity</th>
+                        <th>Status</th>
+                        <th style="text-align:right;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="risk-table-body">
+                    <tr>
+                        <td colspan="7" style="text-align:center; color:var(--text-secondary); padding: 40px 0;">
+                            <i class="fa-solid fa-spinner fa-spin" style="font-size:1.5rem; margin-bottom:12px; color:var(--primary);"></i><br>
+                            Loading risk table data...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+let violationChartInst = null;
+let examChartInst = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    fetchAnalyticsData();
+    // Auto-refresh metrics every 45 seconds
+    setInterval(fetchAnalyticsData, 45000);
+});
+
+function fetchAnalyticsData() {
+    const riskBody = document.getElementById('risk-table-body');
+    
+    fetch('/admin/analytics/data')
+        .then(response => {
+            if (!response.ok) throw new Error('Network response was not ok');
+            return response.json();
+        })
+        .then(data => {
+            // Update KPIs
+            document.getElementById('kpi-integrity-score').innerText = (data.summary.avg_integrity || 100) + '%';
+            document.getElementById('kpi-total-warnings').innerText = data.summary.total_warnings || 0;
+            document.getElementById('kpi-total-sessions').innerText = data.summary.total_sessions || 0;
+            document.getElementById('kpi-flag-rate').innerText = (data.summary.flag_rate || 0) + '%';
+
+            // Build Violation categories chart
+            renderViolationChart(data.violations);
+
+            // Build Exam rankings chart
+            renderExamChart(data.exams);
+
+            // Populate high-risk sessions
+            populateRiskTable(data.high_risk);
+        })
+        .catch(err => {
+            console.error('Error fetching analytics metrics:', err);
+            riskBody.innerHTML = `
+                <tr>
+                    <td colspan="7" style="text-align:center; color:var(--danger); padding:32px 0;">
+                        <i class="fa-solid fa-triangle-exclamation" style="font-size:2rem; margin-bottom:12px;"></i><br>
+                        Failed to load analytics data. Please check your server connection.
+                    </td>
+                </tr>
+            `;
+        });
+}
+
+function renderViolationChart(violations) {
+    const ctx = document.getElementById('violationChart').getContext('2d');
+    const emptyState = document.getElementById('violation-empty-state');
+    const canvas = document.getElementById('violationChart');
+
+    if (!violations || Object.keys(violations).length === 0) {
+        canvas.style.display = 'none';
+        emptyState.style.display = 'block';
+        return;
+    }
+
+    canvas.style.display = 'block';
+    emptyState.style.display = 'none';
+
+    const labels = Object.keys(violations);
+    const dataset = Object.values(violations);
+
+    if (violationChartInst) {
+        violationChartInst.destroy();
+    }
+
+    violationChartInst = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: dataset,
+                backgroundColor: [
+                    '#ef4444', // Red
+                    '#f59e0b', // Amber
+                    '#3b82f6', // Blue
+                    '#8b5cf6', // Violet
+                    '#10b981', // Emerald
+                    '#ec4899', // Pink
+                    '#6366f1'  // Indigo
+                ],
+                borderWidth: 2,
+                borderColor: '#ffffff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        boxWidth: 12,
+                        font: { family: 'Inter', size: 11 },
+                        color: '#64748b'
+                    }
+                }
+            },
+            cutout: '65%'
+        }
+    });
+}
+
+function renderExamChart(exams) {
+    const ctx = document.getElementById('examChart').getContext('2d');
+    const emptyState = document.getElementById('exam-empty-state');
+    const canvas = document.getElementById('examChart');
+
+    if (!exams || exams.length === 0) {
+        canvas.style.display = 'none';
+        emptyState.style.display = 'block';
+        return;
+    }
+
+    canvas.style.display = 'block';
+    emptyState.style.display = 'none';
+
+    const labels = exams.map(e => e.name);
+    const integrityScores = exams.map(e => e.avg_integrity);
+    const avgScores = exams.map(e => e.avg_score);
+
+    if (examChartInst) {
+        examChartInst.destroy();
+    }
+
+    examChartInst = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Avg Integrity (%)',
+                    data: integrityScores,
+                    backgroundColor: 'rgba(139, 92, 246, 0.85)',
+                    borderRadius: 6,
+                    borderWidth: 0
+                },
+                {
+                    label: 'Avg Exam Score (%)',
+                    data: avgScores,
+                    backgroundColor: 'rgba(99, 102, 241, 0.45)',
+                    borderRadius: 6,
+                    borderWidth: 0
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        boxWidth: 12,
+                        font: { family: 'Inter', size: 11 },
+                        color: '#64748b'
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    grid: { color: '#f1f5f9' },
+                    ticks: {
+                        color: '#64748b',
+                        font: { family: 'Inter', size: 10 }
+                    }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: {
+                        color: '#64748b',
+                        font: { family: 'Inter', size: 10 }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function populateRiskTable(highRiskAttempts) {
+    const riskBody = document.getElementById('risk-table-body');
+    if (!highRiskAttempts || highRiskAttempts.length === 0) {
+        riskBody.innerHTML = `
+            <tr>
+                <td colspan="7" style="text-align:center; color:var(--text-secondary); padding: 40px 0;">
+                    <i class="fa-solid fa-circle-check" style="font-size:2rem; margin-bottom:12px; color:var(--success);"></i><br>
+                    All active examination attempts maintain excellent integrity records.
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    let rowsHTML = '';
+    highRiskAttempts.forEach(attempt => {
+        const integrity = Math.max(0, 100 - (attempt.warnings_count * 18));
+        let badgeClass = 'badge-success';
+        if (integrity < 50) badgeClass = 'badge-danger';
+        else if (integrity < 80) badgeClass = 'badge-warning';
+
+        rowsHTML += `
+            <tr>
+                <td style="color:var(--text-secondary); font-size:0.85rem;">#${attempt.id}</td>
+                <td>
+                    <strong>${attempt.student_name}</strong><br>
+                    <span style="font-size:0.75rem; color:var(--text-secondary);">${attempt.student_email}</span>
+                </td>
+                <td>${attempt.exam_name}</td>
+                <td>
+                    <span class="badge ${attempt.warnings_count >= 3 ? 'badge-danger' : 'badge-warning'}">
+                        ${attempt.warnings_count} Warnings
+                    </span>
+                </td>
+                <td>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <div style="flex:1; height:6px; background:#e2e8f0; border-radius:10px; overflow:hidden; min-width:80px;">
+                            <div style="height:100%; width:${integrity}%; background:${integrity >= 80 ? 'var(--success)' : (integrity >= 50 ? 'var(--warning)' : 'var(--danger)')}; border-radius:10px;"></div>
+                        </div>
+                        <span style="font-size:0.75rem; font-weight:600; color:var(--text-secondary); min-width:30px;">${integrity}%</span>
+                    </div>
+                </td>
+                <td>
+                    <span class="badge ${attempt.status === 'reviewed' ? 'badge-success' : 'badge-warning'}">
+                        ${attempt.status === 'reviewed' ? 'Reviewed' : 'Pending Review'}
+                    </span>
+                </td>
+                <td style="text-align:right;">
+                    <a href="/admin/reports/${attempt.id}" class="btn btn-secondary" style="font-size:0.75rem; padding:6px 12px">
+                        <i class="fa-solid fa-magnifying-glass"></i> Inspect
+                    </a>
+                </td>
+            </tr>
+        `;
+    });
+    riskBody.innerHTML = rowsHTML;
+}
+</script>
+{% endblock %}

@@ -66,6 +66,105 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Debounce violation logs
     const lastViolationLogTimes = {};
+
+    // =========================================================
+    // WebRTC Live Stream to Admin (Socket.IO Signaling)
+    // =========================================================
+    let socket = null;
+    let rtcPeerConnection = null;
+    const attemptRoomId = `room_${window.attemptId}`;
+
+    const initWebRTCSignaling = () => {
+        if (typeof io === 'undefined') {
+            console.warn('Socket.IO not loaded — WebRTC signaling unavailable.');
+            return;
+        }
+
+        socket = io();
+
+        socket.on('connect', () => {
+            console.log('[WebRTC] Connected to signaling server, joining room:', attemptRoomId);
+            socket.emit('join', { room: attemptRoomId });
+        });
+
+        // Admin requests negotiation → candidate initiates WebRTC offer
+        socket.on('negotiate_request', async (data) => {
+            if (data.sender !== 'admin') return;
+            console.log('[WebRTC] negotiate_request received from admin');
+            await startWebRTCOffer();
+        });
+
+        // Admin sent us an answer
+        socket.on('webrtc_answer', async (data) => {
+            if (data.sender !== 'admin') return;
+            if (!rtcPeerConnection) return;
+            try {
+                await rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(data.sdp));
+                console.log('[WebRTC] Remote description (answer) set.');
+            } catch (err) {
+                console.error('[WebRTC] Error setting remote answer:', err);
+            }
+        });
+
+        // ICE candidate from admin
+        socket.on('webrtc_ice_candidate', async (data) => {
+            if (data.sender !== 'admin') return;
+            if (rtcPeerConnection && rtcPeerConnection.remoteDescription) {
+                try {
+                    await rtcPeerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+                } catch (e) {
+                    console.warn('[WebRTC] Error adding ICE candidate from admin:', e);
+                }
+            }
+        });
+    };
+
+    const startWebRTCOffer = async () => {
+        // Close any stale connection
+        if (rtcPeerConnection) {
+            try { rtcPeerConnection.close(); } catch(e) {}
+        }
+
+        rtcPeerConnection = new RTCPeerConnection({
+            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+        });
+
+        // Add webcam tracks (video + audio)
+        if (webcamStream) {
+            webcamStream.getTracks().forEach(track => {
+                rtcPeerConnection.addTrack(track, webcamStream);
+            });
+        }
+
+        // ICE candidate handler
+        rtcPeerConnection.onicecandidate = (event) => {
+            if (event.candidate && socket) {
+                socket.emit('webrtc_ice_candidate', {
+                    room: attemptRoomId,
+                    sender: 'candidate',
+                    candidate: event.candidate
+                });
+            }
+        };
+
+        rtcPeerConnection.onconnectionstatechange = () => {
+            console.log('[WebRTC] Connection state:', rtcPeerConnection.connectionState);
+        };
+
+        try {
+            const offer = await rtcPeerConnection.createOffer();
+            await rtcPeerConnection.setLocalDescription(offer);
+
+            socket.emit('webrtc_offer', {
+                room: attemptRoomId,
+                sender: 'candidate',
+                sdp: offer
+            });
+            console.log('[WebRTC] Offer sent to admin.');
+        } catch (err) {
+            console.error('[WebRTC] Error creating/sending offer:', err);
+        }
+    };
     
     // 1. Block Keyboard Shortcuts & Copy/Paste
     const blockShortcuts = (e) => {
@@ -420,6 +519,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 statusGaze.innerText = 'Looking ' + randomGaze;
                 statusGaze.className = 'badge badge-danger';
                 
+                // Update mouth and objects status when motion is suspicious
+                if (statusMouth) {
+                    statusMouth.innerText = 'Active';
+                    statusMouth.className = 'badge badge-warning';
+                }
+                if (statusObjects) {
+                    statusObjects.innerText = 'Suspected';
+                    statusObjects.className = 'badge badge-warning';
+                }
+                
                 if (!window.lastMotionLogTime || Date.now() - window.lastMotionLogTime > 8000) {
                     window.lastMotionLogTime = Date.now();
                     addActivityLog('Suspicious eye movement detected.');
@@ -439,6 +548,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 statusFace.className = 'badge badge-success';
                 statusGaze.innerText = 'Center';
                 statusGaze.className = 'badge badge-success';
+
+                // Reset mouth and objects to normal
+                if (statusMouth) {
+                    statusMouth.innerText = 'Normal';
+                    statusMouth.className = 'badge badge-success';
+                }
+                if (statusObjects) {
+                    statusObjects.innerText = 'None';
+                    statusObjects.className = 'badge badge-success';
+                }
                 
                 if (window.faceNotVisibleTimer) {
                     clearTimeout(window.faceNotVisibleTimer);
@@ -723,6 +842,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (screenStream) screenStream.getTracks().forEach(t => t.stop());
         if (webcamStream) webcamStream.getTracks().forEach(t => t.stop());
         
+        // Clean up WebRTC connection
+        if (rtcPeerConnection) {
+            try { rtcPeerConnection.close(); } catch(e) {}
+            rtcPeerConnection = null;
+        }
+        if (socket) {
+            try { socket.disconnect(); } catch(e) {}
+            socket = null;
+        }
+        
         // Do NOT programmatic exit fullscreen here as per "after submit only come out from full screen using esc"
         
         // Programmatically submit the hidden exam form
@@ -751,6 +880,9 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Initialize streams
             await initMedia();
+            
+            // Initialize WebRTC signaling to admin live feed
+            initWebRTCSignaling();
             
             // Start background recorders
             startRecording();

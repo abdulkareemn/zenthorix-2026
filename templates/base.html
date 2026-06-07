@@ -44,6 +44,9 @@
                     <li class="nav-item {% if request.path == '/admin/reports' %}active{% endif %}">
                         <a href="{{ url_for('admin_reports') }}"><i class="fa-solid fa-clipboard-list"></i> Reports</a>
                     </li>
+                    <li class="nav-item {% if request.path == '/admin/analytics' %}active{% endif %}">
+                        <a href="{{ url_for('admin_analytics') }}"><i class="fa-solid fa-chart-pie"></i> Analytics</a>
+                    </li>
                     <li class="nav-item {% if request.path == '/admin/settings' %}active{% endif %}">
                         <a href="{{ url_for('admin_settings') }}"><i class="fa-solid fa-sliders"></i> Settings</a>
                     </li>

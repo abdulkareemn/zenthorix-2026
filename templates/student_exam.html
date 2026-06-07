@@ -125,35 +125,39 @@
             <div class="proctor-alert-list">
                 <div class="proctor-alert-item">
                     <span>Face Detection</span>
-                    <span class="badge badge-success" id="status-face">Detected</span>
+                    <span class="badge badge-success" id="status-face">Active</span>
                 </div>
                 <div class="proctor-alert-item">
-                    <span>Eye Gaze</span>
-                    <span class="badge badge-success" id="status-gaze">Center</span>
+                    <span>Eye Tracking</span>
+                    <span class="badge badge-success" id="status-gaze">Active</span>
                 </div>
                 <div class="proctor-alert-item">
-                    <span>Mouth</span>
-                    <span class="badge badge-success" id="status-mouth">Clear</span>
-                </div>
-                <div class="proctor-alert-item">
-                    <span>Head Pose</span>
+                    <span>Head Position</span>
                     <span class="badge badge-success" id="status-head">Clear</span>
                 </div>
                 <div class="proctor-alert-item">
-                    <span>Objects</span>
-                    <span class="badge badge-success" id="status-objects">Clear</span>
+                    <span>Mouth Activity</span>
+                    <span class="badge badge-success" id="status-mouth">Normal</span>
                 </div>
                 <div class="proctor-alert-item">
                     <span>Microphone</span>
-                    <span class="badge badge-success" id="status-mic">Live</span>
+                    <span class="badge badge-success" id="status-mic">Active</span>
                 </div>
                 <div class="proctor-alert-item">
-                    <span>Tab Focus</span>
-                    <span class="badge badge-success" id="status-tab">Focused</span>
+                    <span>Audio Level</span>
+                    <span class="badge badge-success" id="status-audio-level">Live</span>
                 </div>
                 <div class="proctor-alert-item">
                     <span>Fullscreen</span>
                     <span class="badge badge-success" id="status-fullscreen">Active</span>
+                </div>
+                <div class="proctor-alert-item">
+                    <span>Browser Focus</span>
+                    <span class="badge badge-success" id="status-tab">Focused</span>
+                </div>
+                <div class="proctor-alert-item">
+                    <span>Objects Detected</span>
+                    <span class="badge badge-success" id="status-objects">None</span>
                 </div>
             </div>
 
@@ -244,11 +248,13 @@
     <!-- Global Variable scripts setup for client script -->
     <script>
         window.examId = {{ exam.id }};
+        window.attemptId = {{ attempt.id }};
         window.examTimeRemaining = {{ time_remaining }};
         window.examRules = {{ exam.rules_json | safe }};
     </script>
-    <!-- html2canvas for automatic exam page recording (no picker needed) -->
+    <!-- html2canvas and socket.io for automatic page capturing & real-time WebRTC signaling -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
     <script src="{{ url_for('static', filename='js/main.js') }}?v=1.0.0"></script>
     <script src="{{ url_for('static', filename='js/exam.js') }}?v=1.0.0"></script>
     

@@ -51,10 +51,16 @@
                                     <td>{{ res.end_time }}</td>
                                     <td>{{ res.total_marks }}</td>
                                     <td>
+                                        {% set score_pct = res.score %}
+                                        <strong style="font-size:1.15rem; color:{% if score_pct >= 80 %}var(--success){% elif score_pct >= 50 %}var(--warning){% else %}var(--danger){% endif %};">
+                                            {{ res.score }}
+                                        </strong> / {{ res.total_marks }}
                                         {% if res.status == 'reviewed' %}
-                                            <strong style="color: var(--primary); font-size:1.1rem;">{{ res.score }}</strong> / {{ res.total_marks }}
+                                            <span class="badge badge-success" style="margin-left:8px; font-size:0.7rem;">
+                                                <i class="fa-solid fa-circle-check"></i> Verified
+                                            </span>
                                         {% else %}
-                                            <span class="badge badge-warning">Pending Audit</span>
+                                            <span class="badge badge-warning" style="margin-left:8px; font-size:0.7rem;">Pending Audit</span>
                                         {% endif %}
                                     </td>
                                 </tr>

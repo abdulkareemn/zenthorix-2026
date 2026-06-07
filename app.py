@@ -10,10 +10,13 @@ import shutil
 import queue
 from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify, g, Response
+from flask_socketio import SocketIO, emit, join_room, leave_room
 
 app = Flask(__name__)
 app.secret_key = 'proctor_ai_super_secret_key_12345'
 app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500 MB — allow large webcam/screen recordings
+
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 @app.template_filter('json_loads')
 def json_loads_filter(s):
@@ -33,7 +36,16 @@ os.makedirs(SANDBOX_DIR, exist_ok=True)
 def get_db():
     db = getattr(g, '_database', None)
     if db is None:
-        db = g._database = psycopg2.connect(os.environ.get('DATABASE_URI'))
+        uri = os.environ.get('DATABASE_URI')
+        for attempt in range(3):
+            try:
+                db = g._database = psycopg2.connect(uri)
+                break
+            except psycopg2.OperationalError as e:
+                if attempt < 2:
+                    time.sleep(1)
+                else:
+                    raise e
     return db
 
 @app.teardown_appcontext
@@ -140,6 +152,18 @@ def init_db():
                 status TEXT NOT NULL DEFAULT 'Active'
             )
         ''')
+
+        # Exam Recordings Table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS exam_recordings (
+                id SERIAL PRIMARY KEY,
+                exam_id INTEGER NOT NULL REFERENCES exams(id),
+                student_id INTEGER NOT NULL REFERENCES users(id),
+                video_path TEXT,
+                audio_path TEXT,
+                timestamp TEXT NOT NULL
+            )
+        ''')
         
         # Seed default users if empty
         cursor.execute("SELECT COUNT(*) FROM users")
@@ -185,8 +209,12 @@ def init_db():
 
         db.commit()
 
-# Initialize Database on load
-init_db()
+# Initialize Database on load (with resilient retry)
+try:
+    init_db()
+except Exception as _db_init_err:
+    print(f"[WARNING] init_db() failed at startup: {_db_init_err}")
+    print("[WARNING] Tables may already exist — continuing startup.")
 
 # HELPER: Get active attempt for student
 def get_active_attempt(user_id):
@@ -277,11 +305,36 @@ def admin_dashboard():
     cursor.execute("SELECT COUNT(*) FROM exams")
     total_exams = cursor.fetchone()[0]
     
-    cursor.execute("SELECT COUNT(*) FROM users WHERE role = 'admin'")
+    cursor.execute("SELECT COUNT(*) FROM users")
     total_users = cursor.fetchone()[0]
-    
-    cursor.execute("SELECT COUNT(*) FROM exam_attempts WHERE status = 'submitted'")
-    total_results = cursor.fetchone()[0]
+
+    # Total warnings logged
+    cursor.execute("SELECT COUNT(*) FROM proctor_logs")
+    total_warnings = cursor.fetchone()[0]
+
+    # Session breakdown stats
+    cursor.execute("""
+        SELECT 
+            COUNT(*) as total,
+            SUM(CASE WHEN status = 'reviewed' THEN 1 ELSE 0 END) as reviewed,
+            SUM(CASE WHEN id NOT IN (SELECT DISTINCT attempt_id FROM proctor_logs) THEN 1 ELSE 0 END) as clean,
+            SUM(CASE WHEN id IN (SELECT DISTINCT attempt_id FROM proctor_logs) THEN 1 ELSE 0 END) as flagged
+        FROM exam_attempts
+        WHERE status IN ('submitted', 'reviewed')
+    """)
+    session_stats = cursor.fetchone()
+    total_attempts = session_stats[0] or 0
+    reviewed_sessions = session_stats[1] or 0
+    clean_sessions = session_stats[2] or 0
+    flagged_sessions = session_stats[3] or 0
+
+    # Compute integrity index: penalise by warnings relative to attempts
+    if total_attempts > 0:
+        avg_warnings_per_session = total_warnings / total_attempts
+        # Each warning reduces index by ~5 points, clamped 0–100
+        integrity_index = max(0, min(100, round(100 - (avg_warnings_per_session * 5))))
+    else:
+        integrity_index = 100
     
     # Recent alerts
     cursor.execute('''
@@ -294,7 +347,7 @@ def admin_dashboard():
     ''')
     recent_alerts = cursor.fetchall()
     
-    # Active live counts
+    # Active live counts (last ping within 10 seconds)
     now = time.time()
     cursor.execute("SELECT COUNT(*) FROM live_sessions WHERE last_ping > %s", (now - 10,))
     active_live = cursor.fetchone()[0]
@@ -303,7 +356,11 @@ def admin_dashboard():
                            total_candidates=total_candidates,
                            total_exams=total_exams,
                            total_users=total_users,
-                           total_results=total_results,
+                           total_warnings=total_warnings,
+                           integrity_index=integrity_index,
+                           clean_sessions=clean_sessions,
+                           flagged_sessions=flagged_sessions,
+                           reviewed_sessions=reviewed_sessions,
                            recent_alerts=recent_alerts,
                            active_live=active_live)
 
@@ -536,6 +593,131 @@ def admin_settings():
         settings = {"webcam_required": 1, "audio_required": 1, "max_warnings": 3, "auto_submit": 1}
         
     return render_template('admin_settings.html', settings=settings)
+
+@app.route('/admin/analytics')
+def admin_analytics():
+    if session.get('role') != 'admin':
+        return redirect(url_for('login'))
+    return render_template('admin_analytics.html')
+
+@app.route('/admin/analytics/data')
+def admin_analytics_data():
+    if session.get('role') != 'admin':
+        return jsonify({"error": "Unauthorized"}), 401
+        
+    db = get_db()
+    cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    
+    # 1. KPI Summary statistics
+    cursor.execute("""
+        SELECT id, warnings_count, score
+        FROM exam_attempts
+        WHERE status IN ('submitted', 'reviewed')
+    """)
+    attempts = cursor.fetchall()
+    total_sessions = len(attempts)
+    
+    total_warnings = 0
+    flagged_sessions = 0
+    total_integrity = 0
+    
+    for att in attempts:
+        w_count = att['warnings_count'] or 0
+        total_warnings += w_count
+        if w_count > 0:
+            flagged_sessions += 1
+        integrity_val = max(0, 100 - (w_count * 18))
+        total_integrity += integrity_val
+        
+    avg_integrity = round(total_integrity / total_sessions) if total_sessions > 0 else 100
+    flag_rate = round((flagged_sessions / total_sessions) * 100) if total_sessions > 0 else 0
+    
+    # 2. Violation Categories breakdown
+    cursor.execute("""
+        SELECT violation_type, COUNT(*) as count
+        FROM malpractice_notifications
+        GROUP BY violation_type
+        ORDER BY count DESC
+    """)
+    violations_rows = cursor.fetchall()
+    violations = {row['violation_type']: row['count'] for row in violations_rows}
+    
+    # If notifications table is empty, fall back to proctor_logs alert_type
+    if not violations:
+        cursor.execute("""
+            SELECT alert_type, COUNT(*) as count
+            FROM proctor_logs
+            GROUP BY alert_type
+            ORDER BY count DESC
+        """)
+        logs_rows = cursor.fetchall()
+        violations = {row['alert_type']: row['count'] for row in logs_rows}
+        
+    # 3. Exam ranking statistics
+    cursor.execute("SELECT id, name FROM exams")
+    exams_list = cursor.fetchall()
+    exams_data = []
+    
+    for ex in exams_list:
+        cursor.execute("""
+            SELECT warnings_count, score
+            FROM exam_attempts
+            WHERE exam_id = %s AND status IN ('submitted', 'reviewed')
+        """, (ex['id'],))
+        ex_attempts = cursor.fetchall()
+        
+        if ex_attempts:
+            ex_total = len(ex_attempts)
+            ex_score_sum = sum(att['score'] or 0 for att in ex_attempts)
+            ex_integrity_sum = sum(max(0, 100 - ((att['warnings_count'] or 0) * 18)) for att in ex_attempts)
+            
+            exams_data.append({
+                "name": ex['name'],
+                "avg_score": round(ex_score_sum / ex_total),
+                "avg_integrity": round(ex_integrity_sum / ex_total),
+                "attempts_count": ex_total
+            })
+        else:
+            exams_data.append({
+                "name": ex['name'],
+                "avg_score": 0,
+                "avg_integrity": 100,
+                "attempts_count": 0
+            })
+            
+    # 4. High-risk attempts
+    cursor.execute("""
+        SELECT a.id, u.name as student_name, u.email as student_email, e.name as exam_name, a.warnings_count, a.status
+        FROM exam_attempts a
+        JOIN users u ON a.user_id = u.id
+        JOIN exams e ON a.exam_id = e.id
+        WHERE a.status IN ('submitted', 'reviewed')
+        ORDER BY a.warnings_count DESC, a.id DESC
+        LIMIT 10
+    """)
+    risk_rows = cursor.fetchall()
+    high_risk = []
+    for r in risk_rows:
+        high_risk.append({
+            "id": r['id'],
+            "student_name": r['student_name'],
+            "student_email": r['student_email'],
+            "exam_name": r['exam_name'],
+            "warnings_count": r['warnings_count'],
+            "status": r['status']
+        })
+        
+    return jsonify({
+        "summary": {
+            "total_sessions": total_sessions,
+            "total_warnings": total_warnings,
+            "avg_integrity": avg_integrity,
+            "flag_rate": flag_rate
+        },
+        "violations": violations,
+        "exams": exams_data,
+        "high_risk": high_risk
+    })
 
 # STUDENT PORTAL ROUTES
 
@@ -905,19 +1087,67 @@ def submit_exam(exam_id):
     if attempt:
         end_time_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
-        # Calculate Mock Score based on compiler check (e.g. if code ran correctly)
-        # In a real tool we'd evaluate unit tests. Here we check answers_json
         code_submitted = request.form.get('code_editor', '')
         answers_json = json.dumps({"q1_code": code_submitted})
         
-        # Mocking evaluation
-        score = 85  # default
-        if "Hello World" in code_submitted:
-            score = 100
-        elif not code_submitted:
-            score = 0
-        else:
-            score = 60
+        # Evaluate score by compiling and running the submitted code
+        score = 0
+        if code_submitted and code_submitted.strip():
+            # Fetch exam to get expected output
+            cursor.execute("SELECT questions_json FROM exams WHERE id = %s", (exam_id,))
+            exam_row = cursor.fetchone()
+            expected_output = ''
+            if exam_row:
+                try:
+                    questions = json.loads(exam_row['questions_json'])
+                    if questions:
+                        expected_output = questions[0].get('expected_output', '').strip()
+                except Exception:
+                    pass
+
+            # Run the code in the sandbox
+            timestamp = int(time.time() * 1000)
+            run_dir = os.path.join(SANDBOX_DIR, f"submit_{attempt['id']}_{timestamp}")
+            os.makedirs(run_dir, exist_ok=True)
+            java_file = os.path.join(run_dir, "Main.java")
+            try:
+                with open(java_file, 'w', encoding='utf-8') as f:
+                    f.write(code_submitted)
+                compile_proc = subprocess.run(
+                    ['javac', 'Main.java'],
+                    cwd=run_dir,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    timeout=10
+                )
+                if compile_proc.returncode == 0:
+                    run_proc = subprocess.run(
+                        ['java', 'Main'],
+                        cwd=run_dir,
+                        input='',
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        text=True,
+                        timeout=5
+                    )
+                    actual_output = run_proc.stdout.strip()
+                    if expected_output and actual_output == expected_output:
+                        score = 100
+                    elif expected_output and expected_output in actual_output:
+                        score = 80
+                    elif actual_output:
+                        score = 50  # compiled and ran, wrong output
+                    else:
+                        score = 30  # compiled but no output
+                else:
+                    score = 0  # compile error
+            except subprocess.TimeoutExpired:
+                score = 10  # ran but timed out
+            except Exception:
+                score = 0
+            finally:
+                shutil.rmtree(run_dir, ignore_errors=True)
             
         cursor.execute('''
             UPDATE exam_attempts 
@@ -937,11 +1167,12 @@ def upload_recordings(exam_id):
     if session.get('role') != 'student':
         return jsonify({"error": "Unauthorized"}), 401
         
+    db = get_db()
+    cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    
     attempt = get_active_attempt(session['user_id'])
     if not attempt:
         # If already submitted, find the latest attempt
-        db = get_db()
-        cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
         cursor.execute("SELECT id FROM exam_attempts WHERE user_id = %s AND exam_id = %s ORDER BY id DESC LIMIT 1", (session['user_id'], exam_id))
         row = cursor.fetchone()
         attempt_id = row['id'] if row else 0
@@ -953,18 +1184,36 @@ def upload_recordings(exam_id):
         
     webcam_file = request.files.get('webcam')
     screen_file = request.files.get('screen')
+    microphone_file = request.files.get('microphone')
     
     uploads_dir = os.path.join(app.static_folder, 'uploads')
     os.makedirs(uploads_dir, exist_ok=True)
     
+    video_path = None
+    audio_path = None
+    
     if webcam_file:
         webcam_path = os.path.join(uploads_dir, f"webcam_{attempt_id}.webm")
         webcam_file.save(webcam_path)
+        video_path = f"/static/uploads/webcam_{attempt_id}.webm"
         
     if screen_file:
         screen_path = os.path.join(uploads_dir, f"screen_{attempt_id}.webm")
         screen_file.save(screen_path)
         
+    if microphone_file:
+        mic_path = os.path.join(uploads_dir, f"microphone_{attempt_id}.webm")
+        microphone_file.save(mic_path)
+        audio_path = f"/static/uploads/microphone_{attempt_id}.webm"
+        
+    # Save to database
+    timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cursor.execute('''
+        INSERT INTO exam_recordings (exam_id, student_id, video_path, audio_path, timestamp)
+        VALUES (%s, %s, %s, %s, %s)
+    ''', (exam_id, session['user_id'], video_path, audio_path, timestamp_str))
+    db.commit()
+    
     return jsonify({"status": "success"})
 
 @app.route('/admin/reports/review/<int:attempt_id>', methods=['POST'])
@@ -1111,5 +1360,37 @@ def admin_notifications_action(alert_id):
     
     return jsonify({"status": "success", "unread_count": unread_count})
 
+# Socket.IO signaling event handlers for WebRTC
+@socketio.on('join')
+def on_join(data):
+    room = str(data.get('room'))
+    if room:
+        join_room(room)
+        emit('status', {'message': f'Client joined room: {room}'}, to=room)
+
+@socketio.on('negotiate_request')
+def on_negotiate_request(data):
+    room = str(data.get('room'))
+    if room:
+        emit('negotiate_request', data, to=room, include_self=False)
+
+@socketio.on('webrtc_offer')
+def on_webrtc_offer(data):
+    room = str(data.get('room'))
+    if room:
+        emit('webrtc_offer', data, to=room, include_self=False)
+
+@socketio.on('webrtc_answer')
+def on_webrtc_answer(data):
+    room = str(data.get('room'))
+    if room:
+        emit('webrtc_answer', data, to=room, include_self=False)
+
+@socketio.on('webrtc_ice_candidate')
+def on_webrtc_ice_candidate(data):
+    room = str(data.get('room'))
+    if room:
+        emit('webrtc_ice_candidate', data, to=room, include_self=False)
+
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5173)
+    socketio.run(app, debug=True, host='0.0.0.0', port=5173, allow_unsafe_werkzeug=True)
